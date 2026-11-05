@@ -5,6 +5,20 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 
+// FIX-4: 需要向 MCU 上报真实的联网状态，必须引入对应组件头文件。
+//        Arduino 原版在 send_status10() 里写 f[4]=WiFi.status()==WL_CONNECTED，
+//        ESPHome 版却把 f[4]/f[5] 硬编码成 0 —— MCU 因此永远认为"秤未联网"，
+//        表现为 LED 持续闪烁 + 未联网即进入休眠。
+#ifdef USE_WIFI
+#include "esphome/components/wifi/wifi_component.h"
+#endif
+#ifdef USE_API
+#include "esphome/components/api/api_server.h"
+#endif
+#ifdef USE_MQTT
+#include "esphome/components/mqtt/mqtt_client.h"
+#endif
+
 namespace esphome {
 namespace s7_mcu {
 
@@ -79,6 +93,9 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   void set_weight_offset(float v) { weight_offset_ = v; }
   void set_weight_sensor(sensor::Sensor *s) { weight_sensor_ = s; }
   void set_mcu_alive_sensor(binary_sensor::BinarySensor *s) { mcu_alive_sensor_ = s; }
+  void set_cs_ok(bool ok) { cs_ok_ = ok; }
+  bool is_cs_ok() const { return cs_ok_; }
+  void set_cs_ready_sensor(binary_sensor::BinarySensor *s) { cs_ready_sensor_ = s; }
 
   float get_setup_priority() const override { return setup_priority::DATA; }
 
@@ -93,9 +110,32 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     write_array(d, len);
   }
 
+  // 上报给 MCU 的状态帧：f[3]=CS1258就绪 f[4]=联网 f[5]=云端/HA在线
   void send_status10() {
     uint8_t f[7] = {0xC6, 0x04, 0x10, 0, 0, 0, 0};
-    // f[3] could carry CS1258 status if wired up; default 0
+
+    // f[3]: CS1258 阻抗前端是否就绪（由 cs1258 组件通过 set_cs_ok 写入）
+    f[3] = cs_ok_ ? 1 : 0;
+
+    // f[4]: WiFi 是否已连接 —— MCU 用它决定是否进入休眠。
+    //       原实现恒为 0 => MCU 认为永远离线 => 未联网即关机。
+    bool net_ok = false;
+#ifdef USE_WIFI
+    net_ok = wifi::global_wifi_component != nullptr && wifi::global_wifi_component->is_connected();
+#endif
+    f[4] = net_ok ? 1 : 0;
+
+    // f[5]: 上位机（HA / MQTT）在线状态
+    bool cloud_ok = false;
+#ifdef USE_API
+    cloud_ok = api::global_api_server != nullptr && api::global_api_server->is_connected();
+#endif
+#ifdef USE_MQTT
+    if (!cloud_ok && mqtt::global_mqtt_client != nullptr)
+      cloud_ok = mqtt::global_mqtt_client->is_connected();
+#endif
+    f[5] = cloud_ok ? 1 : 0;
+
     f[6] = xor_check(f, 6);
     mcu_send(f, 7);
   }
@@ -148,6 +188,9 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   float weight_kg_{0};
   uint16_t weight_raw_{0};
 
+  // CS1258 就绪状态（由外部 cs1258 组件注入）
+  bool cs_ok_{false};
+
   // Config
   uint8_t weight_hi_{0};
   uint8_t weight_lo_{1};
@@ -157,6 +200,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   // Sensors
   sensor::Sensor *weight_sensor_{nullptr};
   binary_sensor::BinarySensor *mcu_alive_sensor_{nullptr};
+  binary_sensor::BinarySensor *cs_ready_sensor_{nullptr};
 };
 
 }  // namespace s7_mcu

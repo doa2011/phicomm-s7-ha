@@ -7,6 +7,12 @@ esphome:
   platformio_options:
     board_build.flash_mode: qio
     board_build.ldscript: eagle.flash.1m64.ld
+  # FIX-9: WiFi 连不上时不要反复重启（默认 15min reboot_timeout 会造成死循环，
+  #        表现为"设备自己在关机"）。放宽到 1 小时，并把重启原因记到日志。
+  on_boot:
+    priority: 800
+    then:
+      - script.execute: sync_cs_ready
 
 esp8266:
   board: esp12e
@@ -15,16 +21,33 @@ logger:
   baud_rate: 0  # UART0 used by MCU, disable logger serial
 
 wifi:
+  # FIX-1: 之前只声明了 ap:，ssid/password 完全没引用 secrets.yaml
+  #        => 设备永远不知道要连哪个 WiFi，只能开热点等超时。
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # 手动配网（无路由器时）走热点
   ap:
     ssid: "S7-Fallback"
+    password: !secret fallback_ap_password
+    # FIX-2: WiFi 组件默认 ap_timeout 只有 1min —— 热点 1 分钟后就关，
+    #        用户根本来不及填账号密码（表现为"首次连接 WiFi 出不来"）。
+    #        放宽到 15 分钟。
+    ap_timeout: 15min
+  # FIX-3: 配网期间不要因连不上 WiFi 而反复重启
+  #        （默认 15min reboot_timeout 会造成重启死循环，表现为"设备自己关机"）
+  reboot_timeout: 0s
 
 captive_portal:
+  # FIX-2: 配网窗口太短是首次连不上 WiFi 的主因之一。
+  #        注意：ap_timeout 属于 wifi: 组件（见下方 wifi.ap_timeout），
+  #        captive_portal 本身在 2026.x 只有 compression 选项。
 
 api:
   # No encryption for first-time setup. Add encryption key later if needed.
 
 ota:
-  platform: esphome
+  - platform: esphome
+    password: !secret ota_password
 
 web_server:
   port: 80
@@ -62,6 +85,12 @@ s7_mcu:
   mcu_alive:
     name: "MCU Online"
     id: mcu_alive
+  # FIX-6: 把 CS1258 前端就绪状态回传给 MCU（状态帧 f[3]）
+  cs_ready:
+    name: "CS1258 Ready"
+    id: cs_ready
+    entity_category: diagnostic
+    icon: "mdi:chip"
 
 # --- CS1258 BIA impedance sensor ---
 cs1258:
@@ -214,8 +243,23 @@ sensor:
     accuracy_decimals: 2
     state_class: measurement
 
+# --- Periodic CS1258 ready sync (drives MCU status frame f[3]) ---
+interval:
+  - interval: 10s
+    then:
+      - script.execute: sync_cs_ready
+
 # --- Scripts ---
 script:
+  # FIX-7: 桥接 CS1258 就绪状态 -> MCU 状态帧 f[3]
+  #        没有它，MCU 拿到的 f[3] 永远是 0。
+  - id: sync_cs_ready
+    mode: restart
+    then:
+      - lambda: |-
+          id(mcu).set_cs_ok(id(bia).is_ready());
+          id(cs_ready).publish_state(id(bia).is_ready());
+
   # Weight debounce: wait for stable weight, then auto-scan
   - id: weight_debounce
     mode: restart  # restart on each new weight reading

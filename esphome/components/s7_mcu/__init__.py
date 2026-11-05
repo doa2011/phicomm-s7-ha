@@ -24,6 +24,7 @@ CONF_WEIGHT_DIV = "weight_div"
 CONF_WEIGHT_OFFSET = "weight_offset"
 CONF_WEIGHT_SENSOR = "weight"
 CONF_MCU_ALIVE = "mcu_alive"
+CONF_CS_READY = "cs_ready"
 
 CONFIG_SCHEMA = (
     cv.Schema(
@@ -41,6 +42,9 @@ CONFIG_SCHEMA = (
             ),
             cv.Optional(CONF_MCU_ALIVE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_CONNECTIVITY,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_CS_READY): binary_sensor.binary_sensor_schema(
                 entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
         }
@@ -67,3 +71,7 @@ async def to_code(config):
     if CONF_MCU_ALIVE in config:
         bs = await binary_sensor.new_binary_sensor(config[CONF_MCU_ALIVE])
         cg.add(var.set_mcu_alive_sensor(bs))
+
+    if CONF_CS_READY in config:
+        bs = await binary_sensor.new_binary_sensor(config[CONF_CS_READY])
+        cg.add(var.set_cs_ready_sensor(bs))

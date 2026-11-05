@@ -78,6 +78,9 @@ class CS1258Component : public Component {
 
   // --- Accessors ---
   bool is_ok() const { return scan_ok_; }
+  /// CS1258 前端是否已成功初始化（reset_init 通过）。
+  /// 与 is_ok() 区分：后者表示"上一次扫描是否成功"，每次扫描开始会清零。
+  bool is_ready() const { return ready_; }
   bool is_body_valid() const { return body_valid_; }
   float get_z_eff_ohm() const { return z_eff_ohm_; }
   uint16_t get_body_res() const { return body_res_; }
@@ -195,6 +198,7 @@ class CS1258Component : public Component {
     delay(10);
     uint8_t r0a = cs_read_reg(0x0A);
     if (!(r0a & 0x40)) return false;
+    ready_ = true;  // FIX: 前端初始化成功，后续扫描可继续
 
     if (!cs_write_verify(0x59, 0x6A)) return false;
 
@@ -286,6 +290,7 @@ class CS1258Component : public Component {
 
   // --- Scan state ---
   bool scan_ok_{false};
+  bool ready_{false};
   bool body_valid_{false};
   uint32_t scan_duration_ms_{0};
   uint32_t short_adc_{0}, cal_a_{0}, cal_b_{0};
@@ -301,6 +306,7 @@ class CS1258Component : public Component {
   // Sensors
   sensor::Sensor *impedance_sensor_{nullptr};
   sensor::Sensor *body_res_sensor_{nullptr};
+
 };
 
 }  // namespace cs1258

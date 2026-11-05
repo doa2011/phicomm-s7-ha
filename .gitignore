@@ -1,10 +1,4 @@
-.pio/
-.vscode/
-src/config.h
-esphome/secrets.yaml
-esphome/.esphome/
-*.swp
-*.swo
-*~
-.DS_Store
-Thumbs.db
+secrets.yaml
+.esphome/
+__pycache__/
+*.pyc
