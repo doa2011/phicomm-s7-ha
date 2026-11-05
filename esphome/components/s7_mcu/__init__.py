@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, sensor, binary_sensor
+from esphome.components import uart, sensor, binary_sensor, cs1258
 from esphome.const import (
     CONF_ID,
     UNIT_KILOGRAM,
@@ -10,7 +10,7 @@ from esphome.const import (
     ENTITY_CATEGORY_DIAGNOSTIC,
 )
 
-DEPENDENCIES = ["uart"]
+DEPENDENCIES = ["uart", "cs1258"]
 AUTO_LOAD = ["sensor", "binary_sensor"]
 
 s7_mcu_ns = cg.esphome_ns.namespace("s7_mcu")
@@ -24,11 +24,13 @@ CONF_WEIGHT_DIV = "weight_div"
 CONF_WEIGHT_OFFSET = "weight_offset"
 CONF_WEIGHT_SENSOR = "weight"
 CONF_MCU_ALIVE = "mcu_alive"
+CONF_CS1258_ID = "cs1258_id"
 
 CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(S7McuComponent),
+            cv.Required(CONF_CS1258_ID): cv.use_id(cs1258.CS1258Component),
             cv.Optional(CONF_WEIGHT_HI, default=0): cv.int_range(min=0, max=30),
             cv.Optional(CONF_WEIGHT_LO, default=1): cv.int_range(min=0, max=30),
             cv.Optional(CONF_WEIGHT_DIV, default=100.0): cv.float_,
@@ -54,6 +56,8 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
+    cs1258_var = await cg.get_variable(config[CONF_CS1258_ID])
+    cg.add(var.set_cs1258_component(cs1258_var))
 
     cg.add(var.set_weight_hi(config[CONF_WEIGHT_HI]))
     cg.add(var.set_weight_lo(config[CONF_WEIGHT_LO]))

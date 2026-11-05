@@ -15,8 +15,14 @@ logger:
   baud_rate: 0  # UART0 used by MCU, disable logger serial
 
 wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+  power_save_mode: none
+  reboot_timeout: 0s
   ap:
     ssid: "S7-Fallback"
+    password: "s7setup123"
 
 captive_portal:
 
@@ -44,6 +50,7 @@ external_components:
 # --- MCU weight sensor ---
 s7_mcu:
   id: mcu
+  cs1258_id: bia
   weight_hi: 0
   weight_lo: 1
   weight_div: 100.0

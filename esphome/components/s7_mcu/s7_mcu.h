@@ -4,6 +4,9 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/wifi/wifi_component.h"
+#include "esphome/components/api/api_server.h"
+#include "esphome/components/cs1258/cs1258.h"
 
 namespace esphome {
 namespace s7_mcu {
@@ -79,6 +82,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   void set_weight_offset(float v) { weight_offset_ = v; }
   void set_weight_sensor(sensor::Sensor *s) { weight_sensor_ = s; }
   void set_mcu_alive_sensor(binary_sensor::BinarySensor *s) { mcu_alive_sensor_ = s; }
+  void set_cs1258_component(cs1258::CS1258Component *c) { cs1258_ = c; }
 
   float get_setup_priority() const override { return setup_priority::DATA; }
 
@@ -94,8 +98,13 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   }
 
   void send_status10() {
+    // Match Arduino status fields; ESPHome uses native API instead of MQTT.
     uint8_t f[7] = {0xC6, 0x04, 0x10, 0, 0, 0, 0};
-    // f[3] could carry CS1258 status if wired up; default 0
+    f[3] = (cs1258_ != nullptr && cs1258_->is_ok()) ? 1 : 0;
+    f[4] = (wifi::global_wifi_component != nullptr &&
+            wifi::global_wifi_component->is_connected()) ? 1 : 0;
+    f[5] = (api::global_api_server != nullptr &&
+            api::global_api_server->is_connected()) ? 1 : 0;
     f[6] = xor_check(f, 6);
     mcu_send(f, 7);
   }
@@ -157,6 +166,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   // Sensors
   sensor::Sensor *weight_sensor_{nullptr};
   binary_sensor::BinarySensor *mcu_alive_sensor_{nullptr};
+  cs1258::CS1258Component *cs1258_{nullptr};
 };
 
 }  // namespace s7_mcu
