@@ -66,9 +66,6 @@ s7_mcu:
     icon: "mdi:scale-bathroom"
     filters:
       - throttle: 1s
-    on_value:
-      then:
-        - script.execute: weight_debounce
   mcu_alive:
     name: "MCU Online"
     id: mcu_alive
@@ -224,24 +221,25 @@ sensor:
     accuracy_decimals: 2
     state_class: measurement
 
-# --- Scripts ---
-script:
-  # Weight debounce: wait for stable weight, then auto-scan
-  - id: weight_debounce
-    mode: restart  # restart on each new weight reading
+# --- Automatic measurement state sync ---
+globals:
+  - id: last_seen_scan_count
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+interval:
+  - interval: 500ms
     then:
       - lambda: |-
-          float w = id(weight_kg).state;
-          if (w < 3.0f) return;  // not on scale
-      - delay: 3s
-      - lambda: |-
-          // Still on scale and weight stable? Scan.
-          float w = id(weight_kg).state;
-          if (w >= 3.0f) {
-            id(bia).scan();
+          const uint32_t scans = id(mcu).get_scan_count();
+          if (scans != id(last_seen_scan_count)) {
+            id(last_seen_scan_count) = scans;
+            id(calc_body_comp).execute();
           }
-      - script.execute: calc_body_comp
 
+# --- Scripts ---
+script:
   # Body composition calculation
   - id: calc_body_comp
     then:

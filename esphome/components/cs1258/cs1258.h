@@ -85,6 +85,7 @@ class CS1258Component : public Component {
   /// 表现为 LED 持续闪烁。f[3] 必须用 is_ready()。
   bool is_ready() const { return ready_; }
   bool is_body_valid() const { return body_valid_; }
+  uint32_t get_scan_duration_ms() const { return scan_duration_ms_; }
   float get_z_eff_ohm() const { return z_eff_ohm_; }
   uint16_t get_body_res() const { return body_res_; }
   uint16_t get_z1() const { return z1_; }
