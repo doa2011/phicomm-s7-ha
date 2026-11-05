@@ -100,7 +100,11 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   void send_status10() {
     // Match Arduino status fields; ESPHome uses native API instead of MQTT.
     uint8_t f[7] = {0xC6, 0x04, 0x10, 0, 0, 0, 0};
-    f[3] = (cs1258_ != nullptr && cs1258_->is_ok()) ? 1 : 0;
+    // f[3] 必须用 is_ready()（前端是否初始化成功），
+    // 不能用 is_ok()（上一次扫描是否成功）—— scan() 一开头就把 scan_ok_ 清零，
+    // 没人踩秤时 is_ok() 恒为 false，会让 MCU 一直认为"阻抗前端未就绪"，
+    // 表现为 LED 持续闪烁。
+    f[3] = (cs1258_ != nullptr && cs1258_->is_ready()) ? 1 : 0;
     f[4] = (wifi::global_wifi_component != nullptr &&
             wifi::global_wifi_component->is_connected()) ? 1 : 0;
     f[5] = (api::global_api_server != nullptr &&

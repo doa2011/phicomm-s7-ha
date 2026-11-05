@@ -22,7 +22,10 @@ wifi:
   reboot_timeout: 0s
   ap:
     ssid: "S7-Fallback"
-    password: "s7setup123"
+    password: !secret fallback_ap_password
+    # 配网窗口：WiFi 组件默认 ap_timeout 只有 1min，热点 1 分钟后就关，
+    # 用户来不及填账号密码（表现为"首次连接 WiFi 出不来"）。放宽到 15 分钟。
+    ap_timeout: 15min
 
 captive_portal:
 

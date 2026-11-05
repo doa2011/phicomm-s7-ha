@@ -78,6 +78,12 @@ class CS1258Component : public Component {
 
   // --- Accessors ---
   bool is_ok() const { return scan_ok_; }
+  /// CS1258 前端是否已成功初始化（reset_init 通过）。
+  /// 与 is_ok() 区分：is_ok() 表示"上一次扫描是否成功"，
+  /// 而 scan() 一开始就会把 scan_ok_ 清零 —— 没人踩秤时 is_ok() 恒为 false，
+  /// 若拿它上报 MCU 状态帧 f[3]，MCU 会一直认为"阻抗前端未就绪"，
+  /// 表现为 LED 持续闪烁。f[3] 必须用 is_ready()。
+  bool is_ready() const { return ready_; }
   bool is_body_valid() const { return body_valid_; }
   float get_z_eff_ohm() const { return z_eff_ohm_; }
   uint16_t get_body_res() const { return body_res_; }
@@ -195,6 +201,7 @@ class CS1258Component : public Component {
     delay(10);
     uint8_t r0a = cs_read_reg(0x0A);
     if (!(r0a & 0x40)) return false;
+    ready_ = true;  // 前端初始化成功，后续扫描可继续
 
     if (!cs_write_verify(0x59, 0x6A)) return false;
 
@@ -286,6 +293,7 @@ class CS1258Component : public Component {
 
   // --- Scan state ---
   bool scan_ok_{false};
+  bool ready_{false};
   bool body_valid_{false};
   uint32_t scan_duration_ms_{0};
   uint32_t short_adc_{0}, cal_a_{0}, cal_b_{0};
