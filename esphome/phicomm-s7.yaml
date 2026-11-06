@@ -408,7 +408,7 @@ script:
             ESP_LOGW("s7_record", "Scan invalid; no record queued");
             return;
           }
-          const std::string *slot = nullptr;
+          std::string *slot = nullptr;
           if (id(outbox_1).empty()) slot = &id(outbox_1);
           else if (id(outbox_2).empty()) slot = &id(outbox_2);
           else {
