@@ -200,8 +200,8 @@ automation:
         event_type: esphome.s7_measurement
     variables:
       record_csv: "{{ trigger.event.data.record | default('') }}"
-      member_id: "{{ trigger.event.data.record.split(',')[1] | int(0) if trigger.event.data.record.split(',') | length > 1 else 0 }}"
-      measurement_id: "{{ trigger.event.data.record.split(',')[0] | int(0) if trigger.event.data.record.split(',') | length > 0 else 0 }}"
+      member_id: "{{ trigger.event.data.record.split(',')[2] | int(0) if trigger.event.data.record.split(',') | length > 1 else 0 }}"
+      measurement_id: "{{ trigger.event.data.record.split(',')[1] | int(0) if trigger.event.data.record.split(',') | length > 0 else 0 }}"
     actions:
       - choose:
           - conditions:
@@ -248,374 +248,374 @@ template:
         unique_id: s7_member1_weight
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[2] | float(0) | round(2) if p | length > 2 else 0 }}
+          {{ p[3] | float(0) | round(2) if p | length > 3 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 1 BMI
         unique_id: s7_member1_bmi
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
+          {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 1 Body Fat
         unique_id: s7_member1_body_fat
         unit_of_measurement: "%"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
+          {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 1 Water
         unique_id: s7_member1_water
         unit_of_measurement: "%"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
+          {{ p[7] | float(0) | round(1) if p | length > 7 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 1 Fat Free Mass
         unique_id: s7_member1_fat_free_mass
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[7] | float(0) | round(2) if p | length > 7 else 0 }}
+          {{ p[8] | float(0) | round(2) if p | length > 8 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 1 BMR
         unique_id: s7_member1_bmr
         unit_of_measurement: "kcal"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[8] | float(0) | round(0) if p | length > 8 else 0 }}
+          {{ p[9] | float(0) | round(0) if p | length > 9 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 1 Muscle
         unique_id: s7_member1_muscle
         unit_of_measurement: "%"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[9] | float(0) | round(1) if p | length > 9 else 0 }}
+          {{ p[10] | float(0) | round(1) if p | length > 10 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 1 Bone Mass
         unique_id: s7_member1_bone_mass
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[10] | float(0) | round(2) if p | length > 10 else 0 }}
+          {{ p[11] | float(0) | round(2) if p | length > 11 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 1 Impedance
         unique_id: s7_member1_impedance
         unit_of_measurement: "ohm"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member1_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member1_record').split(',') %}
-          {{ p[3] | float(0) | round(1) if p | length > 3 else 0 }}
+          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member1_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
 
       - name: S7 Member 2 Weight
         unique_id: s7_member2_weight
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[2] | float(0) | round(2) if p | length > 2 else 0 }}
+          {{ p[3] | float(0) | round(2) if p | length > 3 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 2 BMI
         unique_id: s7_member2_bmi
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
+          {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 2 Body Fat
         unique_id: s7_member2_body_fat
         unit_of_measurement: "%"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
+          {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 2 Water
         unique_id: s7_member2_water
         unit_of_measurement: "%"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
+          {{ p[7] | float(0) | round(1) if p | length > 7 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 2 Fat Free Mass
         unique_id: s7_member2_fat_free_mass
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[7] | float(0) | round(2) if p | length > 7 else 0 }}
+          {{ p[8] | float(0) | round(2) if p | length > 8 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 2 BMR
         unique_id: s7_member2_bmr
         unit_of_measurement: "kcal"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[8] | float(0) | round(0) if p | length > 8 else 0 }}
+          {{ p[9] | float(0) | round(0) if p | length > 9 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 2 Muscle
         unique_id: s7_member2_muscle
         unit_of_measurement: "%"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[9] | float(0) | round(1) if p | length > 9 else 0 }}
+          {{ p[10] | float(0) | round(1) if p | length > 10 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 2 Bone Mass
         unique_id: s7_member2_bone_mass
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[10] | float(0) | round(2) if p | length > 10 else 0 }}
+          {{ p[11] | float(0) | round(2) if p | length > 11 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 2 Impedance
         unique_id: s7_member2_impedance
         unit_of_measurement: "ohm"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member2_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member2_record').split(',') %}
-          {{ p[3] | float(0) | round(1) if p | length > 3 else 0 }}
+          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member2_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
 
       - name: S7 Member 3 Weight
         unique_id: s7_member3_weight
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member3_record').split(',') %}
-          {{ p[2] | float(0) | round(2) if p | length > 2 else 0 }}
+          {{ p[3] | float(0) | round(2) if p | length > 3 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
 
       - name: S7 Member 3 BMI
         unique_id: s7_member3_bmi
         state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
-        state: >-
-          {% set p = states('input_text.s7_member3_record').split(',') %}
-          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
-        attributes:
-          measurement_id: >-
-            {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
-          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
-
-      - name: S7 Member 3 Body Fat
-        unique_id: s7_member3_body_fat
-        unit_of_measurement: "%"
-        state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member3_record').split(',') %}
           {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
 
-      - name: S7 Member 3 Water
-        unique_id: s7_member3_water
+      - name: S7 Member 3 Body Fat
+        unique_id: s7_member3_body_fat
         unit_of_measurement: "%"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member3_record').split(',') %}
           {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 Water
+        unique_id: s7_member3_water
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[7] | float(0) | round(1) if p | length > 7 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
 
       - name: S7 Member 3 Fat Free Mass
         unique_id: s7_member3_fat_free_mass
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member3_record').split(',') %}
-          {{ p[7] | float(0) | round(2) if p | length > 7 else 0 }}
+          {{ p[8] | float(0) | round(2) if p | length > 8 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
 
       - name: S7 Member 3 BMR
         unique_id: s7_member3_bmr
         unit_of_measurement: "kcal"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member3_record').split(',') %}
-          {{ p[8] | float(0) | round(0) if p | length > 8 else 0 }}
+          {{ p[9] | float(0) | round(0) if p | length > 9 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
 
       - name: S7 Member 3 Muscle
         unique_id: s7_member3_muscle
         unit_of_measurement: "%"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member3_record').split(',') %}
-          {{ p[9] | float(0) | round(1) if p | length > 9 else 0 }}
+          {{ p[10] | float(0) | round(1) if p | length > 10 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
 
       - name: S7 Member 3 Bone Mass
         unique_id: s7_member3_bone_mass
         unit_of_measurement: "kg"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member3_record').split(',') %}
-          {{ p[10] | float(0) | round(2) if p | length > 10 else 0 }}
+          {{ p[11] | float(0) | round(2) if p | length > 11 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
 
       - name: S7 Member 3 Impedance
         unique_id: s7_member3_impedance
         unit_of_measurement: "ohm"
         state_class: measurement
-        availability: "{{ states('input_text.s7_member3_record') not in ['', 'unknown', 'unavailable'] }}"
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
           {% set p = states('input_text.s7_member3_record').split(',') %}
-          {{ p[3] | float(0) | round(1) if p | length > 3 else 0 }}
+          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
         attributes:
           measurement_id: >-
             {% set p = states('input_text.s7_member3_record').split(',') %}
-            {{ p[0] if p | length > 0 else 'unknown' }}
+            {{ p[1] if p | length > 1 else 'unknown' }}
           measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
 
