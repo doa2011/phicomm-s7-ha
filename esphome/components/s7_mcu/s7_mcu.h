@@ -35,6 +35,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     weight_stable_since_ = 0;
     last_impedance_ms_ = 0;
     scan_count_ = 0;
+    if (mcu_alive_sensor_ != nullptr) mcu_alive_sensor_->publish_state(false);
   }
 
   void loop() override {
@@ -124,7 +125,11 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     if (weight_hi_ < pay_len && weight_lo_ < pay_len) {
       weight_raw_ = ((uint16_t)frame[3 + weight_hi_] << 8)
                   | (uint16_t)frame[3 + weight_lo_];
-      if (weight_div_ <= 0.0f) return;
+      if (weight_div_ <= 0.0f) {
+        ESP_LOGE(TAG, "Invalid weight_div=%.3f; frame ignored", weight_div_);
+        send_status10();
+        return;
+      }
       weight_kg_ = (float)weight_raw_ / weight_div_ + weight_offset_;
       if (weight_kg_ < 0) weight_kg_ = 0;
 
@@ -195,6 +200,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
                (unsigned)scan_count_, cs1258_->is_ok() ? "YES" : "NO",
                cs1258_->is_body_valid() ? "YES" : "NO",
                (unsigned)cs1258_->get_scan_duration_ms());
+      ESP_LOGD(TAG, "CS1258: %s", cs1258_->get_scan_log());
     }
   }
 
