@@ -23,6 +23,7 @@ CONF_WEIGHT_LO = "weight_lo"
 CONF_WEIGHT_DIV = "weight_div"
 CONF_WEIGHT_OFFSET = "weight_offset"
 CONF_WEIGHT_SENSOR = "weight"
+CONF_WEIGHT_RAW_SENSOR = "weight_raw"
 CONF_MCU_ALIVE = "mcu_alive"
 CONF_CS1258_ID = "cs1258_id"
 
@@ -40,6 +41,10 @@ CONFIG_SCHEMA = (
                 accuracy_decimals=2,
                 device_class=DEVICE_CLASS_WEIGHT,
                 state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_WEIGHT_RAW_SENSOR): sensor.sensor_schema(
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_MCU_ALIVE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_CONNECTIVITY,
@@ -67,6 +72,10 @@ async def to_code(config):
     if CONF_WEIGHT_SENSOR in config:
         sens = await sensor.new_sensor(config[CONF_WEIGHT_SENSOR])
         cg.add(var.set_weight_sensor(sens))
+
+    if CONF_WEIGHT_RAW_SENSOR in config:
+        sens = await sensor.new_sensor(config[CONF_WEIGHT_RAW_SENSOR])
+        cg.add(var.set_weight_raw_sensor(sens))
 
     if CONF_MCU_ALIVE in config:
         bs = await binary_sensor.new_binary_sensor(config[CONF_MCU_ALIVE])
