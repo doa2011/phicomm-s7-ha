@@ -68,13 +68,12 @@ api:
                        (unsigned) measurement_id);
             }
   on_client_connected:
-    then:
-      - delay: 3s
-      - homeassistant.action:
-          action: script.s7_apply_profile
-          on_error:
-            - logger.log: "HA profile sync failed; retained last active member"
-      - script.execute: send_pending_measurement
+    - delay: 3s
+    - homeassistant.action:
+        action: script.s7_apply_profile
+        on_error:
+          - logger.log: "HA profile sync failed; retained last active member"
+    - script.execute: send_pending_measurement
 
 ota:
   platform: esphome
