@@ -19,7 +19,7 @@ The event's `record` value is a comma-separated string with these 20 fields:
 
 | Index (zero-based) | Field |
 |---:|---|
-| 0 | Random measurement ID |
+| 0 | Persistent monotonic measurement ID |
 | 1 | Member ID: 0 unassigned, 1–3 members |
 | 2 | Weight (kg) |
 | 3 | Composite impedance (ohm) |
