@@ -104,7 +104,7 @@ script:
               - service: select.select_option
                 target: {entity_id: select.phicomm_s7_sex}
                 data:
-                  option: "{{ 'Male' if states('input_select.s7_member1_sex') == 'Male' else 'Female' }}"
+                  option: "{{ '男' if states('input_select.s7_member1_sex') == 'Male' else '女' }}"
           - conditions:
               - condition: state
                 entity_id: input_select.s7_active_person
