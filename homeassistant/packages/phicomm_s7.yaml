@@ -219,18 +219,112 @@ template:
         unique_id: s7_person_candidate
         icon: mdi:account-question
         state: >-
-          {{ set w = states('sensor.phicomm_s7_weight') | float(0) }}
-          {{ set a = states('input_text.s7_member1_record').split(',') }}
-          {{ set b = states('input_text.s7_member2_record').split(',') }}
-          {{ set c = states('input_text.s7_member3_record').split(',') }}
-          {{ set da = (w - (a[2] | float(0))) | abs if a | length > 2 else 999 }}
-          {{ set db = (w - (b[2] | float(0))) | abs if b | length > 2 else 999 }}
-          {{ set dc = (w - (c[2] | float(0))) | abs if c | length > 2 else 999 }}
-          {{ set scores = [{'name':'Member 1','d':da},{'name':'Member 2','d':db},{'name':'Member 3','d':dc}] | sort(attribute='d') }}
-          {{ if w < 3 or scores[0].d > 1.5 or scores[1].d - scores[0].d < 1.0 }}
+          {% set w = states('sensor.phicomm_s7_weight') | float(0) %}
+          {% set a = states('input_text.s7_member1_record').split(',') %}
+          {% set b = states('input_text.s7_member2_record').split(',') %}
+          {% set c = states('input_text.s7_member3_record').split(',') %}
+          {% set da = (w - (a[2] | float(0))) | abs if a | length > 2 else 999 %}
+          {% set db = (w - (b[2] | float(0))) | abs if b | length > 2 else 999 %}
+          {% set dc = (w - (c[2] | float(0))) | abs if c | length > 2 else 999 %}
+          {% set scores = [{'name':'Member 1','d':da},{'name':'Member 2','d':db},{'name':'Member 3','d':dc}] | sort(attribute='d') %}
+          {% if w < 3 or scores[0].d > 1.5 or scores[1].d - scores[0].d < 1.0 %}
             Needs confirmation
-          {{ else }}
+          {% else %}
             {{ scores[0].name }}
-          {{ endif }}
+          {% endif %}
         attributes:
           method: "Weight-only candidate hint; never auto-assigns a measurement"
+
+      - name: S7 Member 1 Weight History
+        unique_id: s7_member1_weight_history
+        unit_of_measurement: kg
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[2] | float(0) if p | length > 2 else 0 }}
+        attributes:
+          measured_at: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[0] if p | length > 0 else 'unknown' }}
+      - name: S7 Member 1 BMI History
+        unique_id: s7_member1_bmi_history
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[3] | float(0) if p | length > 3 else 0 }}
+      - name: S7 Member 1 Body Fat History
+        unique_id: s7_member1_body_fat_history
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[4] | float(0) if p | length > 4 else 0 }}
+      - name: S7 Member 1 Impedance History
+        unique_id: s7_member1_impedance_history
+        unit_of_measurement: ohm
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[10] | float(0) if p | length > 10 else 0 }}
+      - name: S7 Member 2 Weight History
+        unique_id: s7_member2_weight_history
+        unit_of_measurement: kg
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[2] | float(0) if p | length > 2 else 0 }}
+        attributes:
+          measured_at: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[0] if p | length > 0 else 'unknown' }}
+      - name: S7 Member 2 BMI History
+        unique_id: s7_member2_bmi_history
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[3] | float(0) if p | length > 3 else 0 }}
+      - name: S7 Member 2 Body Fat History
+        unique_id: s7_member2_body_fat_history
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[4] | float(0) if p | length > 4 else 0 }}
+      - name: S7 Member 2 Impedance History
+        unique_id: s7_member2_impedance_history
+        unit_of_measurement: ohm
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[10] | float(0) if p | length > 10 else 0 }}
+      - name: S7 Member 3 Weight History
+        unique_id: s7_member3_weight_history
+        unit_of_measurement: kg
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[2] | float(0) if p | length > 2 else 0 }}
+        attributes:
+          measured_at: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[0] if p | length > 0 else 'unknown' }}
+      - name: S7 Member 3 BMI History
+        unique_id: s7_member3_bmi_history
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[3] | float(0) if p | length > 3 else 0 }}
+      - name: S7 Member 3 Body Fat History
+        unique_id: s7_member3_body_fat_history
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[4] | float(0) if p | length > 4 else 0 }}
+      - name: S7 Member 3 Impedance History
+        unique_id: s7_member3_impedance_history
+        unit_of_measurement: ohm
+        state_class: measurement
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[10] | float(0) if p | length > 10 else 0 }}
