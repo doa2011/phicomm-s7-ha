@@ -5,6 +5,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include <cstdio>
 #include <cstdarg>
+#include <cstring>
 
 namespace esphome {
 namespace cs1258 {
@@ -29,10 +30,17 @@ class CS1258Component : public Component {
   /// Run a full impedance scan. Blocking (~2s). Call from script/lambda.
   void scan() {
     scan_ok_ = false;
+    ready_ = false;
     body_valid_ = false;
     body_res_ = 0;
     z_eff_ohm_ = 0.0f;
+    z1_ = z2_ = z3_ = z4_ = z5_ = 0;
+    short_adc_ = cal_a_ = cal_b_ = 0;
+    lr_leg_ = rl_leg_ = lr_hand_ = r_leg_ = l_leg_ = {};
+    lh_ll_ = lh_rl_ = rh_ll_ = rh_rl_ = {};
     scan_log_[0] = '\0';
+    if (impedance_sensor_ != nullptr) impedance_sensor_->publish_state(0.0f);
+    if (body_res_sensor_ != nullptr) body_res_sensor_->publish_state(0);
     uint32_t t0 = millis();
 
     if (!reset_init()) {
@@ -46,13 +54,13 @@ class CS1258Component : public Component {
       scan_duration_ms_ = millis() - t0;
       return;
     }
-    append_log_("init=OK pre=OK\\n");
+    append_log_("init=OK pre=OK\n");
 
     // Baselines
     short_adc_ = read_baseline(0x33);
     cal_a_     = read_baseline(0x13);
     cal_b_     = read_baseline(0x23);
-    append_log_("baseline short=%lu cal_a=%lu cal_b=%lu span=%ld\\n",
+    append_log_("baseline short=%lu cal_a=%lu cal_b=%lu span=%ld\n",
                 (unsigned long) short_adc_, (unsigned long) cal_a_,
                 (unsigned long) cal_b_, (long)((int32_t)cal_b_ - (int32_t)cal_a_ - (int32_t)cal_offset_));
 
@@ -66,7 +74,7 @@ class CS1258Component : public Component {
     lh_rl_   = read_channel(0x28);
     rh_ll_   = read_channel(0x7D);
     rh_rl_   = read_channel(0x69);
-    append_log_("EB=%u BE=%u 14=%u DB=%u 8E=%u 3C=%u 28=%u 7D=%u 69=%u\\n",
+    append_log_("EB=%u BE=%u 14=%u DB=%u 8E=%u 3C=%u 28=%u 7D=%u 69=%u\n",
                 lr_leg_.ohm, rl_leg_.ohm, lr_hand_.ohm, r_leg_.ohm, l_leg_.ohm,
                 lh_ll_.ohm, lh_rl_.ohm, rh_ll_.ohm, rh_rl_.ohm);
 
@@ -85,7 +93,7 @@ class CS1258Component : public Component {
     scan_duration_ms_ = millis() - t0;
 
     // Publish
-    if (impedance_sensor_ != nullptr && body_valid_)
+    if (impedance_sensor_ != nullptr)
       impedance_sensor_->publish_state(z_eff_ohm_);
     if (body_res_sensor_ != nullptr)
       body_res_sensor_->publish_state(body_res_);
@@ -105,11 +113,7 @@ class CS1258Component : public Component {
 
   // --- Accessors ---
   bool is_ok() const { return scan_ok_; }
-  /// CS1258 前端是否已成功初始化（reset_init 通过）。
-  /// 与 is_ok() 区分：is_ok() 表示"上一次扫描是否成功"，
-  /// 而 scan() 一开始就会把 scan_ok_ 清零 —— 没人踩秤时 is_ok() 恒为 false，
-  /// 若拿它上报 MCU 状态帧 f[3]，MCU 会一直认为"阻抗前端未就绪"，
-  /// 表现为 LED 持续闪烁。f[3] 必须用 is_ready()。
+  /// Mirrors Arduino m.csOk: true only after a complete CS1258 scan.
   bool is_ready() const { return ready_; }
   bool is_body_valid() const { return body_valid_; }
   void clear_body_valid() { body_valid_ = false; }
@@ -256,8 +260,6 @@ class CS1258Component : public Component {
     delay(10);
     uint8_t r0a = cs_read_reg(0x0A);
     if (!(r0a & 0x40)) return false;
-    ready_ = true;  // 前端初始化成功，后续扫描可继续
-
     if (!cs_write_verify(0x59, 0x6A)) return false;
 
     uint8_t r13 = cs_read_reg(0x13);
@@ -269,6 +271,7 @@ class CS1258Component : public Component {
     for (auto &s : steps) {
       if (!cs_write_verify(s.reg, s.val)) return false;
     }
+    ready_ = true;
     return true;
   }
 
