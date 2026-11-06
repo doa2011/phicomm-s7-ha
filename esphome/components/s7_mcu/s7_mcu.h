@@ -95,6 +95,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   void set_weight_div(float v) { weight_div_ = v; }
   void set_weight_offset(float v) { weight_offset_ = v; }
   void set_weight_sensor(sensor::Sensor *s) { weight_sensor_ = s; }
+  void set_weight_raw_sensor(sensor::Sensor *s) { weight_raw_sensor_ = s; }
   void set_mcu_alive_sensor(binary_sensor::BinarySensor *s) { mcu_alive_sensor_ = s; }
   void set_cs1258_component(cs1258::CS1258Component *c) { cs1258_ = c; }
 
@@ -135,6 +136,8 @@ class S7McuComponent : public Component, public uart::UARTDevice {
 
       if (weight_sensor_ != nullptr)
         weight_sensor_->publish_state(weight_kg_);
+      if (weight_raw_sensor_ != nullptr)
+        weight_raw_sensor_->publish_state(weight_raw_);
       ESP_LOGD(TAG, "RX C5 10 raw=%u weight=%.2f kg", weight_raw_, weight_kg_);
     }
     send_status10();
@@ -224,6 +227,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
 
   // Sensors
   sensor::Sensor *weight_sensor_{nullptr};
+  sensor::Sensor *weight_raw_sensor_{nullptr};
   binary_sensor::BinarySensor *mcu_alive_sensor_{nullptr};
   cs1258::CS1258Component *cs1258_{nullptr};
 
