@@ -15,6 +15,7 @@ static constexpr uint32_t MCU_TIMEOUT_MS = 5000;
 static constexpr float WEIGHT_ON_THRESH = 3.0f;
 static constexpr float WEIGHT_STABLE_DELTA = 0.3f;
 static constexpr uint32_t WEIGHT_STABLE_MS = 3000;
+static constexpr uint32_t PROFILE_SYNC_WAIT_MS = 12000;
 static constexpr uint32_t IMPEDANCE_COOL_MS = 20000;
 static const char *const TAG = "s7_mcu";
 
@@ -103,7 +104,10 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   uint16_t get_weight_raw() const { return weight_raw_; }
   bool is_mcu_alive() const { return mcu_alive_; }
   uint32_t get_scan_count() const { return scan_count_; }
-  void set_active_member(uint8_t member) { active_member_ = member <= 3 ? member : 0; }
+  void set_active_member(uint8_t member) {
+    active_member_ = member <= 3 ? member : 0;
+    active_member_synced_ = true;
+  }
   uint8_t get_session_member() const { return session_member_; }
 
   void set_weight_hi(uint8_t v) { weight_hi_ = v; }
@@ -208,6 +212,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       if (cs1258_ != nullptr) cs1258_->clear_body_valid();
       stable_weight_ = weight_kg_;
       weight_stable_since_ = now;
+      weight_session_started_ = now;
       ESP_LOGI(TAG, "Weight session started: %.2f kg", weight_kg_);
     } else {
       float diff = weight_kg_ - stable_weight_;
@@ -219,13 +224,15 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       }
     }
     const bool stable = (uint32_t)(now - weight_stable_since_) >= WEIGHT_STABLE_MS;
+    const bool profile_ready = active_member_synced_ ||
+        (uint32_t)(now - weight_session_started_) >= PROFILE_SYNC_WAIT_MS;
     const bool cooldown_done = (uint32_t)(now - last_impedance_ms_) > IMPEDANCE_COOL_MS;
-    if (stable && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
+    if (stable && profile_ready && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
       ESP_LOGI(TAG, "Weight stable; starting CS1258 scan");
       // A scale session gets exactly one attempt, including failed scans.
       // The next attempt is allowed only after the person steps off.
       measurement_done_ = true;
-      session_member_ = active_member_;
+      session_member_ = active_member_synced_ ? active_member_ : 0;
       cs1258_->scan();
       last_impedance_ms_ = millis();
       ++scan_count_;
@@ -272,10 +279,12 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   bool measurement_done_{false};
   float stable_weight_{0.0f};
   uint32_t weight_stable_since_{0};
+  uint32_t weight_session_started_{0};
   uint32_t last_impedance_ms_{0};
   uint32_t scan_count_{0};
   uint8_t active_member_{0};
   uint8_t session_member_{0};
+  bool active_member_synced_{false};
   uint16_t last_published_weight_raw_{0xFFFF};
 };
 
