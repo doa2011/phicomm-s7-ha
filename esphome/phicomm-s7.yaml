@@ -42,8 +42,14 @@ api:
         member_id: int
       then:
         - lambda: |-
+            id(measurement_age) = id(user_age).state;
+            id(measurement_height_cm) = id(user_height_cm).state;
+            auto sex_idx = id(user_sex).active_index();
+            id(measurement_male) = !sex_idx.has_value() || sex_idx.value() == 0;
             id(mcu).set_active_member(member_id);
-            ESP_LOGI("s7_record", "Active member set to %d", member_id);
+            ESP_LOGI("s7_record", "Active member set to %d; profile age=%.0f height=%.0f sex=%s",
+                     member_id, id(measurement_age), id(measurement_height_cm),
+                     id(measurement_male) ? "male" : "female");
     - action: ack_measurement
       variables:
         measurement_id: int
@@ -365,6 +371,18 @@ globals:
     restore_value: yes
     update_interval: 100ms
     initial_value: '0'
+  - id: measurement_age
+    type: float
+    restore_value: no
+    initial_value: '30'
+  - id: measurement_height_cm
+    type: float
+    restore_value: no
+    initial_value: '170'
+  - id: measurement_male
+    type: bool
+    restore_value: no
+    initial_value: 'true'
   - id: last_seen_scan_count
     type: uint32_t
     restore_value: no
@@ -473,12 +491,10 @@ script:
       - lambda: |-
           float w = id(weight_kg).state;
           float z = id(impedance_ohm).state;
-          float h_cm = id(user_height_cm).state;
+          float h_cm = id(measurement_height_cm);
           float h = h_cm / 100.0f;
-          float age = id(user_age).state;
-          bool male = true;
-          auto idx = id(user_sex).active_index();
-          if (idx.has_value()) male = (idx.value() == 0);  // 0=男, 1=女
+          float age = id(measurement_age);
+          bool male = id(measurement_male);
 
           if (isnan(w) || isnan(h_cm) || isnan(age) || w <= 0 || h <= 0) return;
 
