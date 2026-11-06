@@ -356,6 +356,10 @@ globals:
     type: uint32_t
     restore_value: yes
     initial_value: '0'
+  - id: measurement_seq
+    type: uint32_t
+    restore_value: yes
+    initial_value: '0'
   - id: last_seen_scan_count
     type: uint32_t
     restore_value: no
@@ -428,7 +432,9 @@ script:
             ESP_LOGE("s7_record", "Both outbox slots await ACK; measurement not queued");
             return;
           }
-          const uint32_t mid = (uint32_t) random(1, 2147483647);
+          ++id(measurement_seq);
+          if (id(measurement_seq) == 0) ++id(measurement_seq);
+          const uint32_t mid = id(measurement_seq);
           char record[129];
           const int n = snprintf(
             record, sizeof(record),
