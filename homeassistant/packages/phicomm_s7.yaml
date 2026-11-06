@@ -189,7 +189,7 @@ automation:
     actions:
       - action: script.s7_apply_profile
 
-  # ESPHome sends one complete JSON record. The device keeps it in flash until
+  # ESPHome sends one complete CSV record. The device keeps it in flash until
   # this automation stores it and calls the matching ACK action.
   - id: s7_receive_measurement
     alias: S7 Receive and Archive Measurement
