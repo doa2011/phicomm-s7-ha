@@ -46,12 +46,14 @@ class CS1258Component : public Component {
     if (!reset_init()) {
       append_log_("reset_init=FAIL");
       scan_duration_ms_ = millis() - t0;
+      publish_channel_(scan_ms_sensor_, scan_duration_ms_);
       return;
     }
 
     if (!pre_baseline()) {
       append_log_("pre_baseline=FAIL");
       scan_duration_ms_ = millis() - t0;
+      publish_channel_(scan_ms_sensor_, scan_duration_ms_);
       return;
     }
     append_log_("init=OK pre=OK\n");
@@ -309,12 +311,16 @@ class CS1258Component : public Component {
     cs_write_reg(0x00, 0xCF);
     delay(5);
 
-    // Discard first two readings
-    cs_read_adc24();
+    // Discard first two readings, preserving the original Arduino diagnostics.
+    uint8_t b0, b1, b2;
+    cs_read_adc24_raw(&b0, &b1, &b2);
+    append_log_("bl_%02X first=%02X%02X%02X", reg8val, b0, b1, b2);
     delay(5);
-    cs_read_adc24();
+    cs_read_adc24_raw(&b0, &b1, &b2);
+    append_log_(" second=%02X%02X%02X", b0, b1, b2);
 
     uint32_t v = cs_sample_avg(8, 500);
+    append_log_(" avg=%lu\n", (unsigned long)v);
     cs_write_reg(0x00, 0xCA);
     delay(2);
     return v;
@@ -346,6 +352,7 @@ class CS1258Component : public Component {
     delay(1);
     r.raw = cs_sample_avg(20, 1000);
     r.ohm = adc_to_ohm(r.raw);
+    append_log_("ch_%02X raw=%lu ohm=%u\n", ch, (unsigned long)r.raw, r.ohm);
     cs_write_reg(0x00, 0xCA);
     delay(2);
     return r;
