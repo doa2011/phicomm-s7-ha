@@ -72,6 +72,12 @@ s7_mcu:
   mcu_alive:
     name: "MCU Online"
     id: mcu_alive
+  measurement_id:
+    name: "Measurement ID"
+    id: measurement_id
+  measurement_valid:
+    name: "Measurement Valid"
+    id: measurement_valid
 
 # --- CS1258 BIA impedance sensor ---
 cs1258:
