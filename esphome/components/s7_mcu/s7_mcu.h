@@ -36,8 +36,6 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     last_impedance_ms_ = 0;
     scan_count_ = 0;
     last_published_weight_raw_ = 0xFFFF;
-    measurement_id_sensor_ = nullptr;
-    measurement_valid_sensor_ = nullptr;
     if (mcu_alive_sensor_ != nullptr) mcu_alive_sensor_->publish_state(false);
     if (measurement_valid_sensor_ != nullptr) measurement_valid_sensor_->publish_state(false);
   }
