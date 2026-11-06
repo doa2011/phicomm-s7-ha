@@ -15,22 +15,23 @@ The outbox has **two slots**, not an unlimited queue. If both slots are occupied
 
 ## CSV field order
 
-The event's `record` value is a comma-separated string with these 20 fields:
+The event's `record` value is a versioned comma-separated string with these 21 fields:
 
 | Index (zero-based) | Field |
 |---:|---|
-| 0 | Persistent monotonic measurement ID |
-| 1 | Member ID: 0 unassigned, 1–3 members |
-| 2 | Weight (kg) |
-| 3 | Composite impedance (ohm) |
-| 4 | BMI |
-| 5 | Body fat (%) |
-| 6 | Water (%) |
-| 7 | Fat-free mass (kg) |
-| 8 | BMR (kcal) |
-| 9 | Muscle (%) |
-| 10 | Bone mass (kg) |
-| 11–19 | Nine CS1258 channels: LR leg, RL leg, LR hand, right leg, left leg, LH-LL, LH-RL, RH-LL, RH-RL |
+| 0 | Schema marker `S7V2` |
+| 1 | Persistent monotonic measurement ID |
+| 2 | Member ID: 0 unassigned, 1–3 members |
+| 3 | Weight (kg) |
+| 4 | Composite impedance (ohm) |
+| 5 | BMI |
+| 6 | Body fat (%) |
+| 7 | Water (%) |
+| 8 | Fat-free mass (kg) |
+| 9 | BMR (kcal) |
+| 10 | Muscle (%) |
+| 11 | Bone mass (kg) |
+| 12–20 | Nine CS1258 channels: LR leg, RL leg, LR hand, right leg, left leg, LH-LL, LH-RL, RH-LL, RH-RL |
 
 The complete CSV is retained in the HA `input_text` helper. The template sensors expose the main metrics with `state_class: measurement`, allowing Recorder/long-term statistics to retain their time series.
 
