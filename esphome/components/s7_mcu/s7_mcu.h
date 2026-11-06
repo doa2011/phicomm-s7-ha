@@ -35,6 +35,9 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     weight_stable_since_ = 0;
     last_impedance_ms_ = 0;
     scan_count_ = 0;
+    last_published_weight_raw_ = 0xFFFF;
+    measurement_id_sensor_ = nullptr;
+    measurement_valid_sensor_ = nullptr;
     if (mcu_alive_sensor_ != nullptr) mcu_alive_sensor_->publish_state(false);
   }
 
@@ -96,6 +99,8 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   void set_weight_offset(float v) { weight_offset_ = v; }
   void set_weight_sensor(sensor::Sensor *s) { weight_sensor_ = s; }
   void set_weight_raw_sensor(sensor::Sensor *s) { weight_raw_sensor_ = s; }
+  void set_measurement_id_sensor(sensor::Sensor *s) { measurement_id_sensor_ = s; }
+  void set_measurement_valid_sensor(binary_sensor::BinarySensor *s) { measurement_valid_sensor_ = s; }
   void set_mcu_alive_sensor(binary_sensor::BinarySensor *s) { mcu_alive_sensor_ = s; }
   void set_cs1258_component(cs1258::CS1258Component *c) { cs1258_ = c; }
 
@@ -118,7 +123,6 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     f[3] = (cs1258_ != nullptr && cs1258_->is_ok()) ? 1 : 0;
     f[6] = xor_check(f, 6);
     mcu_send(f, 7);
-    ESP_LOGD(TAG, "TX C6 04 10 cs_ok=%u checksum=%02X", f[3], f[6]);
   }
 
   void handle_cmd10(const uint8_t *frame, uint8_t total) {
@@ -134,11 +138,16 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       weight_kg_ = (float)weight_raw_ / weight_div_ + weight_offset_;
       if (weight_kg_ < 0) weight_kg_ = 0;
 
-      if (weight_sensor_ != nullptr)
-        weight_sensor_->publish_state(weight_kg_);
-      if (weight_raw_sensor_ != nullptr)
-        weight_raw_sensor_->publish_state(weight_raw_);
-      ESP_LOGD(TAG, "RX C5 10 raw=%u weight=%.2f kg", weight_raw_, weight_kg_);
+      // Keep replying to every MCU frame, but publish/log only when the raw
+      // weight changes. This avoids flooding HA and the UART debug log.
+      if (weight_raw_ != last_published_weight_raw_) {
+        if (weight_sensor_ != nullptr)
+          weight_sensor_->publish_state(weight_kg_);
+        if (weight_raw_sensor_ != nullptr)
+          weight_raw_sensor_->publish_state(weight_raw_);
+        ESP_LOGD(TAG, "RX C5 10 raw=%u weight=%.2f kg", weight_raw_, weight_kg_);
+        last_published_weight_raw_ = weight_raw_;
+      }
     }
     send_status10();
   }
@@ -170,14 +179,19 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     const uint32_t now = millis();
     if (weight_kg_ < WEIGHT_ON_THRESH) {
       if (person_on_scale_) {
-        ESP_LOGD(TAG, "Weight session ended");
+        ESP_LOGI(TAG, "Weight session ended");
         person_on_scale_ = false;
+        measurement_done_ = false;
+        if (measurement_valid_sensor_ != nullptr)
+          measurement_valid_sensor_->publish_state(false);
       }
       return;
     }
     if (!person_on_scale_) {
       person_on_scale_ = true;
       measurement_done_ = false;
+      if (measurement_valid_sensor_ != nullptr)
+        measurement_valid_sensor_->publish_state(false);
       if (cs1258_ != nullptr) cs1258_->clear_body_valid();
       stable_weight_ = weight_kg_;
       weight_stable_since_ = now;
@@ -195,13 +209,20 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     const bool cooldown_done = (uint32_t)(now - last_impedance_ms_) > IMPEDANCE_COOL_MS;
     if (stable && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
       ESP_LOGI(TAG, "Weight stable; starting CS1258 scan");
+      // A scale session gets exactly one attempt, including failed scans.
+      // The next attempt is allowed only after the person steps off.
+      measurement_done_ = true;
       cs1258_->scan();
       last_impedance_ms_ = millis();
       ++scan_count_;
-      measurement_done_ = cs1258_->is_body_valid();
-      ESP_LOGI(TAG, "Scan #%u: scan_ok=%s body_valid=%s duration=%u ms",
+      const bool valid = cs1258_->is_body_valid();
+      if (measurement_valid_sensor_ != nullptr)
+        measurement_valid_sensor_->publish_state(valid);
+      if (measurement_id_sensor_ != nullptr)
+        measurement_id_sensor_->publish_state(static_cast<float>(scan_count_));
+      ESP_LOGI(TAG, "Measurement #%u: scan_ok=%s body_valid=%s duration=%u ms",
                (unsigned)scan_count_, cs1258_->is_ok() ? "YES" : "NO",
-               cs1258_->is_body_valid() ? "YES" : "NO",
+               valid ? "YES" : "NO",
                (unsigned)cs1258_->get_scan_duration_ms());
       ESP_LOGD(TAG, "CS1258: %s", cs1258_->get_scan_log());
     }
@@ -228,6 +249,8 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   // Sensors
   sensor::Sensor *weight_sensor_{nullptr};
   sensor::Sensor *weight_raw_sensor_{nullptr};
+  sensor::Sensor *measurement_id_sensor_{nullptr};
+  binary_sensor::BinarySensor *measurement_valid_sensor_{nullptr};
   binary_sensor::BinarySensor *mcu_alive_sensor_{nullptr};
   cs1258::CS1258Component *cs1258_{nullptr};
 
@@ -237,6 +260,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   uint32_t weight_stable_since_{0};
   uint32_t last_impedance_ms_{0};
   uint32_t scan_count_{0};
+  uint16_t last_published_weight_raw_{0xFFFF};
 };
 
 }  // namespace s7_mcu
