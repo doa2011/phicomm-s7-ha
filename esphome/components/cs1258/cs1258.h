@@ -3,6 +3,9 @@
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 #include "esphome/components/sensor/sensor.h"
+#include <cstdio>
+#include <cstdarg>
+#include <cstring>
 
 namespace esphome {
 namespace cs1258 {
@@ -27,22 +30,59 @@ class CS1258Component : public Component {
   /// Run a full impedance scan. Blocking (~2s). Call from script/lambda.
   void scan() {
     scan_ok_ = false;
+    ready_ = false;
+    body_valid_ = false;
+    body_res_ = 0;
+    z_eff_ohm_ = 0.0f;
+    z1_ = z2_ = z3_ = z4_ = z5_ = 0;
+    short_adc_ = cal_a_ = cal_b_ = 0;
+    lr_leg_ = rl_leg_ = lr_hand_ = r_leg_ = l_leg_ = {};
+    lh_ll_ = lh_rl_ = rh_ll_ = rh_rl_ = {};
+    scan_log_[0] = '\0';
+    if (impedance_sensor_ != nullptr) impedance_sensor_->publish_state(0.0f);
+    if (body_res_sensor_ != nullptr) body_res_sensor_->publish_state(0);
+    publish_channel_(lr_leg_sensor_, 0);
+    publish_channel_(rl_leg_sensor_, 0);
+    publish_channel_(lr_hand_sensor_, 0);
+    publish_channel_(r_leg_sensor_, 0);
+    publish_channel_(l_leg_sensor_, 0);
+    publish_channel_(lh_ll_sensor_, 0);
+    publish_channel_(lh_rl_sensor_, 0);
+    publish_channel_(rh_ll_sensor_, 0);
+    publish_channel_(rh_rl_sensor_, 0);
+    publish_channel_(z1_sensor_, 0);
+    publish_channel_(z2_sensor_, 0);
+    publish_channel_(z3_sensor_, 0);
+    publish_channel_(z4_sensor_, 0);
+    publish_channel_(z5_sensor_, 0);
+    publish_channel_(short_adc_sensor_, 0);
+    publish_channel_(cal_a_sensor_, 0);
+    publish_channel_(cal_b_sensor_, 0);
+    publish_channel_(scan_ms_sensor_, 0);
     uint32_t t0 = millis();
 
     if (!reset_init()) {
+      append_log_("reset_init=FAIL");
       scan_duration_ms_ = millis() - t0;
+      publish_channel_(scan_ms_sensor_, scan_duration_ms_);
       return;
     }
 
     if (!pre_baseline()) {
+      append_log_("pre_baseline=FAIL");
       scan_duration_ms_ = millis() - t0;
+      publish_channel_(scan_ms_sensor_, scan_duration_ms_);
       return;
     }
+    append_log_("init=OK pre=OK\n");
 
     // Baselines
     short_adc_ = read_baseline(0x33);
     cal_a_     = read_baseline(0x13);
     cal_b_     = read_baseline(0x23);
+    append_log_("baseline short=%lu cal_a=%lu cal_b=%lu span=%ld\n",
+                (unsigned long) short_adc_, (unsigned long) cal_a_,
+                (unsigned long) cal_b_, (long)((int32_t)cal_b_ - (int32_t)cal_a_ - (int32_t)cal_offset_));
 
     // 9 channels
     lr_leg_  = read_channel(0xEB);
@@ -54,6 +94,9 @@ class CS1258Component : public Component {
     lh_rl_   = read_channel(0x28);
     rh_ll_   = read_channel(0x7D);
     rh_rl_   = read_channel(0x69);
+    append_log_("EB=%u BE=%u 14=%u DB=%u 8E=%u 3C=%u 28=%u 7D=%u 69=%u\n",
+                lr_leg_.ohm, rl_leg_.ohm, lr_hand_.ohm, r_leg_.ohm, l_leg_.ohm,
+                lh_ll_.ohm, lh_rl_.ohm, rh_ll_.ohm, rh_rl_.ohm);
 
     // Composite impedances
     body_res_ = half2(rl_leg_.ohm, lr_leg_.ohm);
@@ -70,21 +113,40 @@ class CS1258Component : public Component {
     scan_duration_ms_ = millis() - t0;
 
     // Publish
-    if (impedance_sensor_ != nullptr && body_valid_)
+    if (impedance_sensor_ != nullptr)
       impedance_sensor_->publish_state(z_eff_ohm_);
     if (body_res_sensor_ != nullptr)
       body_res_sensor_->publish_state(body_res_);
+    publish_channel_(lr_leg_sensor_, lr_leg_.ohm);
+    publish_channel_(rl_leg_sensor_, rl_leg_.ohm);
+    publish_channel_(lr_hand_sensor_, lr_hand_.ohm);
+    publish_channel_(r_leg_sensor_, r_leg_.ohm);
+    publish_channel_(l_leg_sensor_, l_leg_.ohm);
+    publish_channel_(lh_ll_sensor_, lh_ll_.ohm);
+    publish_channel_(lh_rl_sensor_, lh_rl_.ohm);
+    publish_channel_(rh_ll_sensor_, rh_ll_.ohm);
+    publish_channel_(rh_rl_sensor_, rh_rl_.ohm);
+    publish_channel_(z1_sensor_, z1_);
+    publish_channel_(z2_sensor_, z2_);
+    publish_channel_(z3_sensor_, z3_);
+    publish_channel_(z4_sensor_, z4_);
+    publish_channel_(z5_sensor_, z5_);
+    publish_channel_(short_adc_sensor_, short_adc_);
+    publish_channel_(cal_a_sensor_, cal_a_);
+    publish_channel_(cal_b_sensor_, cal_b_);
+    publish_channel_(scan_ms_sensor_, scan_duration_ms_);
+    append_log_("body_res=%u z_eff=%.1f valid=%s duration=%lu ms", body_res_,
+                z_eff_ohm_, body_valid_ ? "YES" : "NO",
+                (unsigned long)scan_duration_ms_);
   }
 
   // --- Accessors ---
   bool is_ok() const { return scan_ok_; }
-  /// CS1258 前端是否已成功初始化（reset_init 通过）。
-  /// 与 is_ok() 区分：is_ok() 表示"上一次扫描是否成功"，
-  /// 而 scan() 一开始就会把 scan_ok_ 清零 —— 没人踩秤时 is_ok() 恒为 false，
-  /// 若拿它上报 MCU 状态帧 f[3]，MCU 会一直认为"阻抗前端未就绪"，
-  /// 表现为 LED 持续闪烁。f[3] 必须用 is_ready()。
+  /// True when the CS1258 reset and register initialization succeeded.
   bool is_ready() const { return ready_; }
   bool is_body_valid() const { return body_valid_; }
+  void clear_body_valid() { body_valid_ = false; }
+  uint32_t get_scan_duration_ms() const { return scan_duration_ms_; }
   float get_z_eff_ohm() const { return z_eff_ohm_; }
   uint16_t get_body_res() const { return body_res_; }
   uint16_t get_z1() const { return z1_; }
@@ -92,6 +154,10 @@ class CS1258Component : public Component {
   uint16_t get_z3() const { return z3_; }
   uint16_t get_z4() const { return z4_; }
   uint16_t get_z5() const { return z5_; }
+  uint32_t get_short_adc() const { return short_adc_; }
+  uint32_t get_cal_a() const { return cal_a_; }
+  uint32_t get_cal_b() const { return cal_b_; }
+  const char *get_scan_log() const { return scan_log_; }
 
   // --- Config setters ---
   void set_pin_cs(uint8_t p) { pin_cs_ = p; }
@@ -102,8 +168,39 @@ class CS1258Component : public Component {
   void set_cal_offset(uint16_t v) { cal_offset_ = v; }
   void set_impedance_sensor(sensor::Sensor *s) { impedance_sensor_ = s; }
   void set_body_res_sensor(sensor::Sensor *s) { body_res_sensor_ = s; }
+  void set_lr_leg_sensor(sensor::Sensor *s) { lr_leg_sensor_ = s; }
+  void set_rl_leg_sensor(sensor::Sensor *s) { rl_leg_sensor_ = s; }
+  void set_lr_hand_sensor(sensor::Sensor *s) { lr_hand_sensor_ = s; }
+  void set_r_leg_sensor(sensor::Sensor *s) { r_leg_sensor_ = s; }
+  void set_l_leg_sensor(sensor::Sensor *s) { l_leg_sensor_ = s; }
+  void set_lh_ll_sensor(sensor::Sensor *s) { lh_ll_sensor_ = s; }
+  void set_lh_rl_sensor(sensor::Sensor *s) { lh_rl_sensor_ = s; }
+  void set_rh_ll_sensor(sensor::Sensor *s) { rh_ll_sensor_ = s; }
+  void set_rh_rl_sensor(sensor::Sensor *s) { rh_rl_sensor_ = s; }
+  void set_z1_sensor(sensor::Sensor *s) { z1_sensor_ = s; }
+  void set_z2_sensor(sensor::Sensor *s) { z2_sensor_ = s; }
+  void set_z3_sensor(sensor::Sensor *s) { z3_sensor_ = s; }
+  void set_z4_sensor(sensor::Sensor *s) { z4_sensor_ = s; }
+  void set_z5_sensor(sensor::Sensor *s) { z5_sensor_ = s; }
+  void set_short_adc_sensor(sensor::Sensor *s) { short_adc_sensor_ = s; }
+  void set_cal_a_sensor(sensor::Sensor *s) { cal_a_sensor_ = s; }
+  void set_cal_b_sensor(sensor::Sensor *s) { cal_b_sensor_ = s; }
+  void set_scan_ms_sensor(sensor::Sensor *s) { scan_ms_sensor_ = s; }
 
  protected:
+  void append_log_(const char *fmt, ...) {
+    const size_t used = strlen(scan_log_);
+    if (used >= sizeof(scan_log_) - 1) return;
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(scan_log_ + used, sizeof(scan_log_) - used, fmt, args);
+    va_end(args);
+  }
+
+  void publish_channel_(sensor::Sensor *sensor, uint32_t value) {
+    if (sensor != nullptr) sensor->publish_state(static_cast<float>(value));
+  }
+
   // --- Low-level bit-bang ---
   void cs_delay(uint16_t us) { delayMicroseconds(us); }
 
@@ -201,8 +298,6 @@ class CS1258Component : public Component {
     delay(10);
     uint8_t r0a = cs_read_reg(0x0A);
     if (!(r0a & 0x40)) return false;
-    ready_ = true;  // 前端初始化成功，后续扫描可继续
-
     if (!cs_write_verify(0x59, 0x6A)) return false;
 
     uint8_t r13 = cs_read_reg(0x13);
@@ -214,6 +309,7 @@ class CS1258Component : public Component {
     for (auto &s : steps) {
       if (!cs_write_verify(s.reg, s.val)) return false;
     }
+    ready_ = true;
     return true;
   }
 
@@ -233,19 +329,24 @@ class CS1258Component : public Component {
     cs_write_reg(0x00, 0xCF);
     delay(5);
 
-    // Discard first two readings
-    cs_read_adc24();
+    // Discard first two readings, preserving the original Arduino diagnostics.
+    uint8_t b0, b1, b2;
+    cs_read_adc24_raw(&b0, &b1, &b2);
+    append_log_("bl_%02X first=%02X%02X%02X", reg8val, b0, b1, b2);
     delay(5);
-    cs_read_adc24();
+    cs_read_adc24_raw(&b0, &b1, &b2);
+    append_log_(" second=%02X%02X%02X", b0, b1, b2);
 
     uint32_t v = cs_sample_avg(8, 500);
+    append_log_(" avg=%lu\n", (unsigned long)v);
     cs_write_reg(0x00, 0xCA);
     delay(2);
     return v;
   }
 
   uint16_t adc_to_ohm(uint32_t raw) {
-    int32_t span = (int32_t)(cal_b_ - cal_a_) - (int32_t)cal_offset_;
+    // Cast operands before subtraction to avoid unsigned underflow.
+    int32_t span = (int32_t)cal_b_ - (int32_t)cal_a_ - (int32_t)cal_offset_;
     if (span > 100) {
       if (raw <= short_adc_) return 0;
       float z = (float)(raw - short_adc_) * 7000.0f / (float)span;
@@ -269,6 +370,7 @@ class CS1258Component : public Component {
     delay(1);
     r.raw = cs_sample_avg(20, 1000);
     r.ohm = adc_to_ohm(r.raw);
+    append_log_("ch_%02X raw=%lu ohm=%u\n", ch, (unsigned long)r.raw, r.ohm);
     cs_write_reg(0x00, 0xCA);
     delay(2);
     return r;
@@ -309,6 +411,25 @@ class CS1258Component : public Component {
   // Sensors
   sensor::Sensor *impedance_sensor_{nullptr};
   sensor::Sensor *body_res_sensor_{nullptr};
+  sensor::Sensor *lr_leg_sensor_{nullptr};
+  sensor::Sensor *rl_leg_sensor_{nullptr};
+  sensor::Sensor *lr_hand_sensor_{nullptr};
+  sensor::Sensor *r_leg_sensor_{nullptr};
+  sensor::Sensor *l_leg_sensor_{nullptr};
+  sensor::Sensor *lh_ll_sensor_{nullptr};
+  sensor::Sensor *lh_rl_sensor_{nullptr};
+  sensor::Sensor *rh_ll_sensor_{nullptr};
+  sensor::Sensor *rh_rl_sensor_{nullptr};
+  sensor::Sensor *z1_sensor_{nullptr};
+  sensor::Sensor *z2_sensor_{nullptr};
+  sensor::Sensor *z3_sensor_{nullptr};
+  sensor::Sensor *z4_sensor_{nullptr};
+  sensor::Sensor *z5_sensor_{nullptr};
+  sensor::Sensor *short_adc_sensor_{nullptr};
+  sensor::Sensor *cal_a_sensor_{nullptr};
+  sensor::Sensor *cal_b_sensor_{nullptr};
+  sensor::Sensor *scan_ms_sensor_{nullptr};
+  char scan_log_[600]{};
 };
 
 }  // namespace cs1258

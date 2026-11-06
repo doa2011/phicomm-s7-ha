@@ -66,12 +66,18 @@ s7_mcu:
     icon: "mdi:scale-bathroom"
     filters:
       - throttle: 1s
-    on_value:
-      then:
-        - script.execute: weight_debounce
+  weight_raw:
+    name: "Weight Raw"
+    entity_category: diagnostic
   mcu_alive:
     name: "MCU Online"
     id: mcu_alive
+  measurement_id:
+    name: "Measurement ID"
+    id: measurement_id
+  measurement_valid:
+    name: "Measurement Valid"
+    id: measurement_valid
 
 # --- CS1258 BIA impedance sensor ---
 cs1258:
@@ -90,6 +96,60 @@ cs1258:
     id: body_res
     icon: "mdi:resistor"
     entity_category: diagnostic
+  lr_leg:
+    name: "CS1258 LR Leg"
+    entity_category: diagnostic
+  rl_leg:
+    name: "CS1258 RL Leg"
+    entity_category: diagnostic
+  lr_hand:
+    name: "CS1258 LR Hand"
+    entity_category: diagnostic
+  r_leg:
+    name: "CS1258 Right Leg"
+    entity_category: diagnostic
+  l_leg:
+    name: "CS1258 Left Leg"
+    entity_category: diagnostic
+  lh_ll:
+    name: "CS1258 LH-LL"
+    entity_category: diagnostic
+  lh_rl:
+    name: "CS1258 LH-RL"
+    entity_category: diagnostic
+  rh_ll:
+    name: "CS1258 RH-LL"
+    entity_category: diagnostic
+  rh_rl:
+    name: "CS1258 RH-RL"
+    entity_category: diagnostic
+  z1:
+    name: "CS1258 Z1"
+    entity_category: diagnostic
+  z2:
+    name: "CS1258 Z2"
+    entity_category: diagnostic
+  z3:
+    name: "CS1258 Z3"
+    entity_category: diagnostic
+  z4:
+    name: "CS1258 Z4"
+    entity_category: diagnostic
+  z5:
+    name: "CS1258 Z5"
+    entity_category: diagnostic
+  short_adc:
+    name: "CS1258 Short ADC"
+    entity_category: diagnostic
+  cal_a:
+    name: "CS1258 Cal A"
+    entity_category: diagnostic
+  cal_b:
+    name: "CS1258 Cal B"
+    entity_category: diagnostic
+  scan_ms:
+    name: "CS1258 Scan Duration"
+    entity_category: diagnostic
 
 # --- Heater ---
 switch:
@@ -100,8 +160,7 @@ switch:
     icon: "mdi:radiator"
     restore_mode: ALWAYS_OFF
     on_turn_on:
-      - delay: 60s
-      - switch.turn_off: heater_switch
+      - script.execute: heater_timeout
 
 # --- User profile inputs ---
 number:
@@ -224,23 +283,31 @@ sensor:
     accuracy_decimals: 2
     state_class: measurement
 
-# --- Scripts ---
-script:
-  # Weight debounce: wait for stable weight, then auto-scan
-  - id: weight_debounce
-    mode: restart  # restart on each new weight reading
+# --- Automatic measurement state sync ---
+globals:
+  - id: last_seen_scan_count
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+interval:
+  - interval: 500ms
     then:
       - lambda: |-
-          float w = id(weight_kg).state;
-          if (w < 3.0f) return;  // not on scale
-      - delay: 3s
-      - lambda: |-
-          // Still on scale and weight stable? Scan.
-          float w = id(weight_kg).state;
-          if (w >= 3.0f) {
-            id(bia).scan();
+          const uint32_t scans = id(mcu).get_scan_count();
+          if (scans != id(last_seen_scan_count)) {
+            id(last_seen_scan_count) = scans;
+            id(calc_body_comp).execute();
           }
-      - script.execute: calc_body_comp
+
+# --- Scripts ---
+script:
+  # Restartable heater safety timeout, matching the Arduino deadline reset on each ON.
+  - id: heater_timeout
+    mode: restart
+    then:
+      - delay: 60s
+      - switch.turn_off: heater_switch
 
   # Body composition calculation
   - id: calc_body_comp
@@ -255,7 +322,7 @@ script:
           auto idx = id(user_sex).active_index();
           if (idx.has_value()) male = (idx.value() == 0);  // 0=男, 1=女
 
-          if (w <= 0 || h <= 0) return;
+          if (isnan(w) || isnan(h_cm) || isnan(age) || w <= 0 || h <= 0) return;
 
           // BMI
           float bmi_val = w / (h * h);
