@@ -106,6 +106,15 @@ class CS1258Component : public Component {
     publish_channel_(lh_rl_sensor_, lh_rl_.ohm);
     publish_channel_(rh_ll_sensor_, rh_ll_.ohm);
     publish_channel_(rh_rl_sensor_, rh_rl_.ohm);
+    publish_channel_(z1_sensor_, z1_);
+    publish_channel_(z2_sensor_, z2_);
+    publish_channel_(z3_sensor_, z3_);
+    publish_channel_(z4_sensor_, z4_);
+    publish_channel_(z5_sensor_, z5_);
+    publish_channel_(short_adc_sensor_, short_adc_);
+    publish_channel_(cal_a_sensor_, cal_a_);
+    publish_channel_(cal_b_sensor_, cal_b_);
+    publish_channel_(scan_ms_sensor_, scan_duration_ms_);
     append_log_("body_res=%u z_eff=%.1f valid=%s duration=%lu ms", body_res_,
                 z_eff_ohm_, body_valid_ ? "YES" : "NO",
                 (unsigned long)scan_duration_ms_);
@@ -148,6 +157,15 @@ class CS1258Component : public Component {
   void set_lh_rl_sensor(sensor::Sensor *s) { lh_rl_sensor_ = s; }
   void set_rh_ll_sensor(sensor::Sensor *s) { rh_ll_sensor_ = s; }
   void set_rh_rl_sensor(sensor::Sensor *s) { rh_rl_sensor_ = s; }
+  void set_z1_sensor(sensor::Sensor *s) { z1_sensor_ = s; }
+  void set_z2_sensor(sensor::Sensor *s) { z2_sensor_ = s; }
+  void set_z3_sensor(sensor::Sensor *s) { z3_sensor_ = s; }
+  void set_z4_sensor(sensor::Sensor *s) { z4_sensor_ = s; }
+  void set_z5_sensor(sensor::Sensor *s) { z5_sensor_ = s; }
+  void set_short_adc_sensor(sensor::Sensor *s) { short_adc_sensor_ = s; }
+  void set_cal_a_sensor(sensor::Sensor *s) { cal_a_sensor_ = s; }
+  void set_cal_b_sensor(sensor::Sensor *s) { cal_b_sensor_ = s; }
+  void set_scan_ms_sensor(sensor::Sensor *s) { scan_ms_sensor_ = s; }
 
  protected:
   void append_log_(const char *fmt, ...) {
@@ -377,6 +395,15 @@ class CS1258Component : public Component {
   sensor::Sensor *lh_rl_sensor_{nullptr};
   sensor::Sensor *rh_ll_sensor_{nullptr};
   sensor::Sensor *rh_rl_sensor_{nullptr};
+  sensor::Sensor *z1_sensor_{nullptr};
+  sensor::Sensor *z2_sensor_{nullptr};
+  sensor::Sensor *z3_sensor_{nullptr};
+  sensor::Sensor *z4_sensor_{nullptr};
+  sensor::Sensor *z5_sensor_{nullptr};
+  sensor::Sensor *short_adc_sensor_{nullptr};
+  sensor::Sensor *cal_a_sensor_{nullptr};
+  sensor::Sensor *cal_b_sensor_{nullptr};
+  sensor::Sensor *scan_ms_sensor_{nullptr};
   char scan_log_[600]{};
 };
 
