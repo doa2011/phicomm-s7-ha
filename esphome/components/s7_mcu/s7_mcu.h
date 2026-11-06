@@ -124,6 +124,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     if (weight_hi_ < pay_len && weight_lo_ < pay_len) {
       weight_raw_ = ((uint16_t)frame[3 + weight_hi_] << 8)
                   | (uint16_t)frame[3 + weight_lo_];
+      if (weight_div_ <= 0.0f) return;
       weight_kg_ = (float)weight_raw_ / weight_div_ + weight_offset_;
       if (weight_kg_ < 0) weight_kg_ = 0;
 
@@ -169,6 +170,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     if (!person_on_scale_) {
       person_on_scale_ = true;
       measurement_done_ = false;
+      if (cs1258_ != nullptr) cs1258_->clear_body_valid();
       stable_weight_ = weight_kg_;
       weight_stable_since_ = now;
       ESP_LOGI(TAG, "Weight session started: %.2f kg", weight_kg_);
