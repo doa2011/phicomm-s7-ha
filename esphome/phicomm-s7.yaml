@@ -438,7 +438,7 @@ script:
           char record[129];
           const int n = snprintf(
             record, sizeof(record),
-            "%lu,%u,%.2f,%.1f,%.1f,%.1f,%.1f,%.2f,%.0f,%.1f,%.2f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f",
+            "S7V2,%lu,%u,%.2f,%.1f,%.1f,%.1f,%.1f,%.2f,%.0f,%.1f,%.2f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f",
             (unsigned long) mid, (unsigned) id(mcu).get_session_member(),
             id(weight_kg).state, id(impedance_ohm).state,
             id(bmi).state, id(body_fat_pct).state, id(water_pct).state,
