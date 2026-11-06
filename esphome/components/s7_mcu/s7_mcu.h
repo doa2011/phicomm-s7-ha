@@ -87,6 +87,13 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       // A silent MCU means the current weighing session has ended/reset.
       person_on_scale_ = false;
       measurement_done_ = false;
+      weight_kg_ = 0.0f;
+      weight_raw_ = 0;
+      last_published_weight_raw_ = 0;
+      if (weight_sensor_ != nullptr)
+        weight_sensor_->publish_state(0.0f);
+      if (weight_raw_sensor_ != nullptr)
+        weight_raw_sensor_->publish_state(0.0f);
       if (measurement_valid_sensor_ != nullptr)
         measurement_valid_sensor_->publish_state(false);
     }
