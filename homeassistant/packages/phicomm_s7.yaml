@@ -160,6 +160,21 @@ script:
                 data:
                   member_id: 3
         default:
+          - action: number.set_value
+            target:
+              entity_id: number.phicomm_s7_age
+            data:
+              value: 30
+          - action: number.set_value
+            target:
+              entity_id: number.phicomm_s7_height
+            data:
+              value: 170
+          - action: select.select_option
+            target:
+              entity_id: select.phicomm_s7_sex
+            data:
+              option: "男"
           - action: esphome.phicomm_s7_set_active_member
             data:
               member_id: 0
