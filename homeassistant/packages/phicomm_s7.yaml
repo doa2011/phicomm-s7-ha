@@ -1,1 +1,238 @@
-# Home Assistant package for the Phicomm S7 scale
+# Three-member Home Assistant package for Phicomm S7.
+# Add: homeassistant: packages: !include_dir_named packages
+# Select the active member before stepping onto the scale.
+
+input_select:
+  s7_active_person:
+    name: S7 Active Person
+    options: [Unassigned, Member 1, Member 2, Member 3]
+    initial: Unassigned
+
+  s7_member1_sex:
+    name: S7 Member 1 Sex
+    options: [Male, Female]
+    initial: Male
+  s7_member2_sex:
+    name: S7 Member 2 Sex
+    options: [Male, Female]
+    initial: Female
+  s7_member3_sex:
+    name: S7 Member 3 Sex
+    options: [Male, Female]
+    initial: Male
+
+input_number:
+  s7_member1_age:
+    name: S7 Member 1 Age
+    min: 10
+    max: 99
+    step: 1
+    mode: box
+    initial: 30
+  s7_member1_height:
+    name: S7 Member 1 Height
+    min: 100
+    max: 230
+    step: 1
+    unit_of_measurement: cm
+    mode: box
+    initial: 170
+  s7_member2_age:
+    name: S7 Member 2 Age
+    min: 10
+    max: 99
+    step: 1
+    mode: box
+    initial: 30
+  s7_member2_height:
+    name: S7 Member 2 Height
+    min: 100
+    max: 230
+    step: 1
+    unit_of_measurement: cm
+    mode: box
+    initial: 165
+  s7_member3_age:
+    name: S7 Member 3 Age
+    min: 10
+    max: 99
+    step: 1
+    mode: box
+    initial: 30
+  s7_member3_height:
+    name: S7 Member 3 Height
+    min: 100
+    max: 230
+    step: 1
+    unit_of_measurement: cm
+    mode: box
+    initial: 175
+
+input_text:
+  s7_member1_record:
+    name: S7 Member 1 Last Record
+    max: 255
+  s7_member2_record:
+    name: S7 Member 2 Last Record
+    max: 255
+  s7_member3_record:
+    name: S7 Member 3 Last Record
+    max: 255
+  s7_unassigned_record:
+    name: S7 Unassigned Last Record
+    max: 255
+
+script:
+  s7_apply_profile:
+    alias: S7 Apply Selected Profile
+    mode: restart
+    sequence:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 1
+            sequence:
+              - service: number.set_value
+                target: {entity_id: number.phicomm_s7_age}
+                data:
+                  value: "{{ states('input_number.s7_member1_age') | float(30) }}"
+              - service: number.set_value
+                target: {entity_id: number.phicomm_s7_height}
+                data:
+                  value: "{{ states('input_number.s7_member1_height') | float(170) }}"
+              - service: select.select_option
+                target: {entity_id: select.phicomm_s7_sex}
+                data:
+                  option: "{{ 'Male' if states('input_select.s7_member1_sex') == 'Male' else 'Female' }}"
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 2
+            sequence:
+              - service: number.set_value
+                target: {entity_id: number.phicomm_s7_age}
+                data:
+                  value: "{{ states('input_number.s7_member2_age') | float(30) }}"
+              - service: number.set_value
+                target: {entity_id: number.phicomm_s7_height}
+                data:
+                  value: "{{ states('input_number.s7_member2_height') | float(165) }}"
+              - service: select.select_option
+                target: {entity_id: select.phicomm_s7_sex}
+                data:
+                  option: "{{ '男' if states('input_select.s7_member2_sex') == 'Male' else '女' }}"
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 3
+            sequence:
+              - service: number.set_value
+                target: {entity_id: number.phicomm_s7_age}
+                data:
+                  value: "{{ states('input_number.s7_member3_age') | float(30) }}"
+              - service: number.set_value
+                target: {entity_id: number.phicomm_s7_height}
+                data:
+                  value: "{{ states('input_number.s7_member3_height') | float(175) }}"
+              - service: select.select_option
+                target: {entity_id: select.phicomm_s7_sex}
+                data:
+                  option: "{{ '男' if states('input_select.s7_member3_sex') == 'Male' else '女' }}"
+
+automation:
+  - id: s7_profile_sync
+    alias: S7 Sync Selected Profile
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id:
+          - input_select.s7_active_person
+          - input_number.s7_member1_age
+          - input_number.s7_member1_height
+          - input_select.s7_member1_sex
+          - input_number.s7_member2_age
+          - input_number.s7_member2_height
+          - input_select.s7_member2_sex
+          - input_number.s7_member3_age
+          - input_number.s7_member3_height
+          - input_select.s7_member3_sex
+      - platform: homeassistant
+        event: start
+    condition:
+      - condition: template
+        value_template: "{{ states('input_select.s7_active_person') != 'Unassigned' }}"
+    action:
+      - service: script.s7_apply_profile
+
+  - id: s7_snapshot_measurement
+    alias: S7 Save Completed Measurement
+    mode: queued
+    max: 5
+    trigger:
+      - platform: state
+        entity_id: sensor.phicomm_s7_measurement_id
+    condition:
+      - condition: state
+        entity_id: binary_sensor.phicomm_s7_measurement_valid
+        state: "on"
+    action:
+      - delay: "00:00:02"
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 1
+            sequence:
+              - service: input_text.set_value
+                target: {entity_id: input_text.s7_member1_record}
+                data:
+                  value: >-
+                    {{ now().strftime('%Y-%m-%d %H:%M:%S') }},{{ states('sensor.phicomm_s7_measurement_id') }},{{ states('sensor.phicomm_s7_weight') }},{{ states('sensor.phicomm_s7_bmi') }},{{ states('sensor.phicomm_s7_body_fat') }},{{ states('sensor.phicomm_s7_water') }},{{ states('sensor.phicomm_s7_fat_free_mass') }},{{ states('sensor.phicomm_s7_bmr') }},{{ states('sensor.phicomm_s7_muscle') }},{{ states('sensor.phicomm_s7_bone_mass') }},{{ states('sensor.phicomm_s7_impedance') }},{{ states('sensor.phicomm_s7_cs1258_lr_leg') }},{{ states('sensor.phicomm_s7_cs1258_rl_leg') }},{{ states('sensor.phicomm_s7_cs1258_lr_hand') }},{{ states('sensor.phicomm_s7_cs1258_r_leg') }},{{ states('sensor.phicomm_s7_cs1258_l_leg') }},{{ states('sensor.phicomm_s7_cs1258_lh_ll') }},{{ states('sensor.phicomm_s7_cs1258_lh_rl') }},{{ states('sensor.phicomm_s7_cs1258_rh_ll') }},{{ states('sensor.phicomm_s7_cs1258_rh_rl') }}
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 2
+            sequence:
+              - service: input_text.set_value
+                target: {entity_id: input_text.s7_member2_record}
+                data:
+                  value: >-
+                    {{ now().strftime('%Y-%m-%d %H:%M:%S') }},{{ states('sensor.phicomm_s7_measurement_id') }},{{ states('sensor.phicomm_s7_weight') }},{{ states('sensor.phicomm_s7_bmi') }},{{ states('sensor.phicomm_s7_body_fat') }},{{ states('sensor.phicomm_s7_water') }},{{ states('sensor.phicomm_s7_fat_free_mass') }},{{ states('sensor.phicomm_s7_bmr') }},{{ states('sensor.phicomm_s7_muscle') }},{{ states('sensor.phicomm_s7_bone_mass') }},{{ states('sensor.phicomm_s7_impedance') }},{{ states('sensor.phicomm_s7_cs1258_lr_leg') }},{{ states('sensor.phicomm_s7_cs1258_rl_leg') }},{{ states('sensor.phicomm_s7_cs1258_lr_hand') }},{{ states('sensor.phicomm_s7_cs1258_r_leg') }},{{ states('sensor.phicomm_s7_cs1258_l_leg') }},{{ states('sensor.phicomm_s7_cs1258_lh_ll') }},{{ states('sensor.phicomm_s7_cs1258_lh_rl') }},{{ states('sensor.phicomm_s7_cs1258_rh_ll') }},{{ states('sensor.phicomm_s7_cs1258_rh_rl') }}
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 3
+            sequence:
+              - service: input_text.set_value
+                target: {entity_id: input_text.s7_member3_record}
+                data:
+                  value: >-
+                    {{ now().strftime('%Y-%m-%d %H:%M:%S') }},{{ states('sensor.phicomm_s7_measurement_id') }},{{ states('sensor.phicomm_s7_weight') }},{{ states('sensor.phicomm_s7_bmi') }},{{ states('sensor.phicomm_s7_body_fat') }},{{ states('sensor.phicomm_s7_water') }},{{ states('sensor.phicomm_s7_fat_free_mass') }},{{ states('sensor.phicomm_s7_bmr') }},{{ states('sensor.phicomm_s7_muscle') }},{{ states('sensor.phicomm_s7_bone_mass') }},{{ states('sensor.phicomm_s7_impedance') }},{{ states('sensor.phicomm_s7_cs1258_lr_leg') }},{{ states('sensor.phicomm_s7_cs1258_rl_leg') }},{{ states('sensor.phicomm_s7_cs1258_lr_hand') }},{{ states('sensor.phicomm_s7_cs1258_r_leg') }},{{ states('sensor.phicomm_s7_cs1258_l_leg') }},{{ states('sensor.phicomm_s7_cs1258_lh_ll') }},{{ states('sensor.phicomm_s7_cs1258_rh_ll') }},{{ states('sensor.phicomm_s7_cs1258_rh_rl') }}
+        default:
+          - service: input_text.set_value
+            target: {entity_id: input_text.s7_unassigned_record}
+            data:
+              value: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }},{{ states('sensor.phicomm_s7_measurement_id') }},{{ states('sensor.phicomm_s7_weight') }},{{ states('sensor.phicomm_s7_impedance') }}"
+
+template:
+  - sensor:
+      - name: S7 Person Candidate
+        unique_id: s7_person_candidate
+        icon: mdi:account-question
+        state: >-
+          {{ set w = states('sensor.phicomm_s7_weight') | float(0) }}
+          {{ set a = states('input_text.s7_member1_record').split(',') }}
+          {{ set b = states('input_text.s7_member2_record').split(',') }}
+          {{ set c = states('input_text.s7_member3_record').split(',') }}
+          {{ set da = (w - (a[2] | float(0))) | abs if a | length > 2 else 999 }}
+          {{ set db = (w - (b[2] | float(0))) | abs if b | length > 2 else 999 }}
+          {{ set dc = (w - (c[2] | float(0))) | abs if c | length > 2 else 999 }}
+          {{ set scores = [{'name':'Member 1','d':da},{'name':'Member 2','d':db},{'name':'Member 3','d':dc}] | sort(attribute='d') }}
+          {{ if w < 3 or scores[0].d > 1.5 or scores[1].d - scores[0].d < 1.0 }}
+            Needs confirmation
+          {{ else }}
+            {{ scores[0].name }}
+          {{ endif }}
+        attributes:
+          method: "Weight-only candidate hint; never auto-assigns a measurement"
