@@ -413,10 +413,13 @@ script:
           }
           id(pending_id) = mid;
           id(pending_record) = record;
-          delay(150);
-          id(pending_valid) = true;
-          ESP_LOGI("s7_record", "Queued measurement %lu (%d bytes), member=%u",
+          ESP_LOGI("s7_record", "Prepared measurement %lu (%d bytes), member=%u",
                    (unsigned long) mid, n, (unsigned) id(mcu).get_session_member());
+      - delay: 200ms
+      - lambda: |-
+          id(pending_valid) = true;
+          ESP_LOGI("s7_record", "Measurement %u committed to outbox",
+                   (unsigned) id(pending_id));
 
   # Restartable heater safety timeout, matching the Arduino deadline reset on each ON.
   - id: heater_timeout
