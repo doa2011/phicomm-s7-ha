@@ -124,8 +124,7 @@ switch:
     icon: "mdi:radiator"
     restore_mode: ALWAYS_OFF
     on_turn_on:
-      - delay: 60s
-      - switch.turn_off: heater_switch
+      - script.execute: heater_timeout
 
 # --- User profile inputs ---
 number:
@@ -267,6 +266,13 @@ interval:
 
 # --- Scripts ---
 script:
+  # Restartable heater safety timeout, matching the Arduino deadline reset on each ON.
+  - id: heater_timeout
+    mode: restart
+    then:
+      - delay: 60s
+      - switch.turn_off: heater_switch
+
   # Body composition calculation
   - id: calc_body_comp
     then:
