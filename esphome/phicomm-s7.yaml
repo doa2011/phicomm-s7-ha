@@ -10,9 +10,13 @@ esphome:
 
 esp8266:
   board: esp12e
+  restore_from_flash: true
 
 logger:
   baud_rate: 0  # UART0 used by MCU, disable logger serial
+
+preferences:
+  flash_write_interval: 0s
 
 wifi:
   ssid: !secret wifi_ssid
@@ -30,7 +34,38 @@ wifi:
 captive_portal:
 
 api:
+  id: api_server
   # No encryption for first-time setup. Add encryption key later if needed.
+  actions:
+    - action: set_active_member
+      variables:
+        member_id: int
+      then:
+        - lambda: |-
+            id(mcu).set_active_member(member_id);
+            ESP_LOGI("s7_record", "Active member set to %d", member_id);
+    - action: ack_measurement
+      variables:
+        measurement_id: int
+      then:
+        - lambda: |-
+            if (id(pending_valid) && (uint32_t) measurement_id == id(pending_id)) {
+              id(pending_valid) = false;
+              id(pending_record).clear();
+              ESP_LOGI("s7_record", "HA acknowledged measurement %u",
+                       (unsigned) measurement_id);
+            } else {
+              ESP_LOGW("s7_record", "Ignored stale ACK id=%u pending=%u",
+                       (unsigned) measurement_id, (unsigned) id(pending_id));
+            }
+  on_client_connected:
+    then:
+      - delay: 3s
+      - homeassistant.action:
+          action: script.s7_apply_profile
+          on_error:
+            - logger.log: "HA profile sync failed; retained last active member"
+      - script.execute: send_pending_measurement
 
 ota:
   platform: esphome
@@ -98,30 +133,39 @@ cs1258:
     entity_category: diagnostic
   lr_leg:
     name: "CS1258 LR Leg"
+    id: lr_leg
     entity_category: diagnostic
   rl_leg:
     name: "CS1258 RL Leg"
+    id: rl_leg
     entity_category: diagnostic
   lr_hand:
     name: "CS1258 LR Hand"
+    id: lr_hand
     entity_category: diagnostic
   r_leg:
     name: "CS1258 Right Leg"
+    id: r_leg
     entity_category: diagnostic
   l_leg:
     name: "CS1258 Left Leg"
+    id: l_leg
     entity_category: diagnostic
   lh_ll:
     name: "CS1258 LH-LL"
+    id: lh_ll
     entity_category: diagnostic
   lh_rl:
     name: "CS1258 LH-RL"
+    id: lh_rl
     entity_category: diagnostic
   rh_ll:
     name: "CS1258 RH-LL"
+    id: rh_ll
     entity_category: diagnostic
   rh_rl:
     name: "CS1258 RH-RL"
+    id: rh_rl
     entity_category: diagnostic
   z1:
     name: "CS1258 Z1"
@@ -285,6 +329,19 @@ sensor:
 
 # --- Automatic measurement state sync ---
 globals:
+  - id: pending_record
+    type: std::string
+    restore_value: yes
+    max_restore_data_length: 254
+    initial_value: '""'
+  - id: pending_id
+    type: uint32_t
+    restore_value: yes
+    initial_value: '0'
+  - id: pending_valid
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
   - id: last_seen_scan_count
     type: uint32_t
     restore_value: no
@@ -297,11 +354,70 @@ interval:
           const uint32_t scans = id(mcu).get_scan_count();
           if (scans != id(last_seen_scan_count)) {
             id(last_seen_scan_count) = scans;
-            id(calc_body_comp).execute();
+            id(finalize_measurement).execute();
           }
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            api.connected:
+              state_subscription_only: true
+          then:
+            - script.execute: send_pending_measurement
 
 # --- Scripts ---
 script:
+  - id: send_pending_measurement
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return id(pending_valid) && !id(pending_record).empty();'
+          then:
+            - homeassistant.event:
+                event: esphome.s7_measurement
+                data_template:
+                  record: "{{ record }}"
+                variables:
+                  record: !lambda 'return id(pending_record);'
+
+  - id: finalize_measurement
+    mode: single
+    then:
+      - script.execute: calc_body_comp
+      - delay: 300ms
+      - lambda: |-
+          if (!id(measurement_valid).state) {
+            ESP_LOGW("s7_record", "Scan invalid; no record queued");
+            return;
+          }
+          if (id(pending_valid)) {
+            ESP_LOGW("s7_record", "Previous measurement still awaits ACK; not overwriting it");
+            return;
+          }
+          const uint32_t mid = (uint32_t) random(1, 2147483647);
+          char record[255];
+          const int n = snprintf(
+            record, sizeof(record),
+            "{\"id\":%lu,\"m\":%u,\"w\":%.2f,\"z\":%.1f,\"bmi\":%.1f,\"fat\":%.1f,\"water\":%.1f,\"ffm\":%.2f,\"bmr\":%.0f,\"muscle\":%.1f,\"bone\":%.2f,\"lr\":%.0f,\"rl\":%.0f,\"hand\":%.0f,\"rleg\":%.0f,\"lleg\":%.0f,\"hll\":%.0f,\"hrl\":%.0f,\"rhl\":%.0f,\"rhr\":%.0f}",
+            (unsigned long) mid, (unsigned) id(mcu).get_session_member(),
+            id(weight_kg).state, id(impedance_ohm).state,
+            id(bmi).state, id(body_fat_pct).state, id(water_pct).state,
+            id(fat_free_mass).state, id(bmr_kcal).state, id(muscle_pct).state,
+            id(bone_mass).state, id(lr_leg).state, id(rl_leg).state,
+            id(lr_hand).state, id(r_leg).state, id(l_leg).state,
+            id(lh_ll).state, id(lh_rl).state, id(rh_ll).state, id(rh_rl).state);
+          if (n <= 0 || n >= (int) sizeof(record)) {
+            ESP_LOGE("s7_record", "Record overflow (%d bytes); not queued", n);
+            return;
+          }
+          id(pending_id) = mid;
+          id(pending_record) = record;
+          delay(150);
+          id(pending_valid) = true;
+          ESP_LOGI("s7_record", "Queued measurement %lu (%d bytes), member=%u",
+                   (unsigned long) mid, n, (unsigned) id(mcu).get_session_member());
+
   # Restartable heater safety timeout, matching the Arduino deadline reset on each ON.
   - id: heater_timeout
     mode: restart
