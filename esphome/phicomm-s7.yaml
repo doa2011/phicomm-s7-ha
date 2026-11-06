@@ -66,6 +66,9 @@ s7_mcu:
     icon: "mdi:scale-bathroom"
     filters:
       - throttle: 1s
+  weight_raw:
+    name: "Weight Raw"
+    entity_category: diagnostic
   mcu_alive:
     name: "MCU Online"
     id: mcu_alive
@@ -113,6 +116,33 @@ cs1258:
     entity_category: diagnostic
   rh_rl:
     name: "CS1258 RH-RL"
+    entity_category: diagnostic
+  z1:
+    name: "CS1258 Z1"
+    entity_category: diagnostic
+  z2:
+    name: "CS1258 Z2"
+    entity_category: diagnostic
+  z3:
+    name: "CS1258 Z3"
+    entity_category: diagnostic
+  z4:
+    name: "CS1258 Z4"
+    entity_category: diagnostic
+  z5:
+    name: "CS1258 Z5"
+    entity_category: diagnostic
+  short_adc:
+    name: "CS1258 Short ADC"
+    entity_category: diagnostic
+  cal_a:
+    name: "CS1258 Cal A"
+    entity_category: diagnostic
+  cal_b:
+    name: "CS1258 Cal B"
+    entity_category: diagnostic
+  scan_ms:
+    name: "CS1258 Scan Duration"
     entity_category: diagnostic
 
 # --- Heater ---
