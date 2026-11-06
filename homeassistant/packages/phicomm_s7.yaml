@@ -227,7 +227,7 @@ template:
           {% set db = (w - (b[2] | float(0))) | abs if b | length > 2 else 999 %}
           {% set dc = (w - (c[2] | float(0))) | abs if c | length > 2 else 999 %}
           {% set scores = [{'name':'Member 1','d':da},{'name':'Member 2','d':db},{'name':'Member 3','d':dc}] | sort(attribute='d') %}
-          {% if w < 3 or scores[0].d > 1.5 or scores[1].d - scores[0].d < 1.0 %}
+          {% if w < 3 or a | length < 11 or b | length < 11 or c | length < 11 or scores[0].d > 1.5 or scores[1].d - scores[0].d < 1.0 %}
             Needs confirmation
           {% else %}
             {{ scores[0].name }}
