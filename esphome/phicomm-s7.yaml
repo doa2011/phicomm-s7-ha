@@ -341,24 +341,29 @@ globals:
   - id: outbox_1
     type: std::string
     restore_value: yes
+    update_interval: 100ms
     max_restore_data_length: 128
     initial_value: '""'
   - id: outbox_1_id
     type: uint32_t
     restore_value: yes
+    update_interval: 100ms
     initial_value: '0'
   - id: outbox_2
     type: std::string
     restore_value: yes
+    update_interval: 100ms
     max_restore_data_length: 128
     initial_value: '""'
   - id: outbox_2_id
     type: uint32_t
     restore_value: yes
+    update_interval: 100ms
     initial_value: '0'
   - id: measurement_seq
     type: uint32_t
     restore_value: yes
+    update_interval: 100ms
     initial_value: '0'
   - id: last_seen_scan_count
     type: uint32_t
