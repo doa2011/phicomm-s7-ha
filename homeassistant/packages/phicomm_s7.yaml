@@ -278,6 +278,7 @@ template:
 
       - name: S7 Member 1 BMI
         unique_id: s7_member1_bmi
+        unit_of_measurement: "kg/m²"
         state_class: measurement
         availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
         state: >-
@@ -403,6 +404,7 @@ template:
 
       - name: S7 Member 2 BMI
         unique_id: s7_member2_bmi
+        unit_of_measurement: "kg/m²"
         state_class: measurement
         availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
         state: >-
@@ -528,6 +530,7 @@ template:
 
       - name: S7 Member 3 BMI
         unique_id: s7_member3_bmi
+        unit_of_measurement: "kg/m²"
         state_class: measurement
         availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
         state: >-
