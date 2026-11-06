@@ -49,14 +49,23 @@ api:
         measurement_id: int
       then:
         - lambda: |-
-            if (id(pending_valid) && (uint32_t) measurement_id == id(pending_id)) {
-              id(pending_valid) = false;
-              id(pending_record).clear();
+            bool cleared = false;
+            if (!id(outbox_1).empty() &&
+                (uint32_t) strtoul(id(outbox_1).c_str(), nullptr, 10) == (uint32_t) measurement_id) {
+              id(outbox_1).clear();
+              cleared = true;
+            }
+            if (!id(outbox_2).empty() &&
+                (uint32_t) strtoul(id(outbox_2).c_str(), nullptr, 10) == (uint32_t) measurement_id) {
+              id(outbox_2).clear();
+              cleared = true;
+            }
+            if (cleared) {
               ESP_LOGI("s7_record", "HA acknowledged measurement %u",
                        (unsigned) measurement_id);
             } else {
-              ESP_LOGW("s7_record", "Ignored stale ACK id=%u pending=%u",
-                       (unsigned) measurement_id, (unsigned) id(pending_id));
+              ESP_LOGW("s7_record", "Ignored stale ACK id=%u",
+                       (unsigned) measurement_id);
             }
   on_client_connected:
     then:
@@ -329,19 +338,17 @@ sensor:
 
 # --- Automatic measurement state sync ---
 globals:
-  - id: pending_record
+  # Two compact CSV slots fit in ESP8266 flash preferences (128 bytes each).
+  - id: outbox_1
     type: std::string
     restore_value: yes
-    max_restore_data_length: 254
+    max_restore_data_length: 128
     initial_value: '""'
-  - id: pending_id
-    type: uint32_t
+  - id: outbox_2
+    type: std::string
     restore_value: yes
-    initial_value: '0'
-  - id: pending_valid
-    type: bool
-    restore_value: yes
-    initial_value: 'false'
+    max_restore_data_length: 128
+    initial_value: '""'
   - id: last_seen_scan_count
     type: uint32_t
     restore_value: no
@@ -372,14 +379,24 @@ script:
     then:
       - if:
           condition:
-            lambda: 'return id(pending_valid) && !id(pending_record).empty();'
+            lambda: 'return !id(outbox_1).empty();'
           then:
             - homeassistant.event:
                 event: esphome.s7_measurement
                 data_template:
                   record: "{{ record }}"
                 variables:
-                  record: !lambda 'return id(pending_record);'
+                  record: !lambda 'return id(outbox_1);'
+      - if:
+          condition:
+            lambda: 'return !id(outbox_2).empty();'
+          then:
+            - homeassistant.event:
+                event: esphome.s7_measurement
+                data_template:
+                  record: "{{ record }}"
+                variables:
+                  record: !lambda 'return id(outbox_2);'
 
   - id: finalize_measurement
     mode: single
@@ -391,15 +408,18 @@ script:
             ESP_LOGW("s7_record", "Scan invalid; no record queued");
             return;
           }
-          if (id(pending_valid)) {
-            ESP_LOGW("s7_record", "Previous measurement still awaits ACK; not overwriting it");
+          const std::string *slot = nullptr;
+          if (id(outbox_1).empty()) slot = &id(outbox_1);
+          else if (id(outbox_2).empty()) slot = &id(outbox_2);
+          else {
+            ESP_LOGE("s7_record", "Both outbox slots await ACK; measurement not queued");
             return;
           }
           const uint32_t mid = (uint32_t) random(1, 2147483647);
-          char record[255];
+          char record[129];
           const int n = snprintf(
             record, sizeof(record),
-            "{\"id\":%lu,\"m\":%u,\"w\":%.2f,\"z\":%.1f,\"bmi\":%.1f,\"fat\":%.1f,\"water\":%.1f,\"ffm\":%.2f,\"bmr\":%.0f,\"muscle\":%.1f,\"bone\":%.2f,\"lr\":%.0f,\"rl\":%.0f,\"hand\":%.0f,\"rleg\":%.0f,\"lleg\":%.0f,\"hll\":%.0f,\"hrl\":%.0f,\"rhl\":%.0f,\"rhr\":%.0f}",
+            "%lu,%u,%.2f,%.1f,%.1f,%.1f,%.1f,%.2f,%.0f,%.1f,%.2f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f",
             (unsigned long) mid, (unsigned) id(mcu).get_session_member(),
             id(weight_kg).state, id(impedance_ohm).state,
             id(bmi).state, id(body_fat_pct).state, id(water_pct).state,
@@ -411,19 +431,10 @@ script:
             ESP_LOGE("s7_record", "Record overflow (%d bytes); not queued", n);
             return;
           }
-          id(pending_id) = mid;
-          id(pending_record) = record;
+          *slot = record;
           ESP_LOGI("s7_record", "Prepared measurement %lu (%d bytes), member=%u",
                    (unsigned long) mid, n, (unsigned) id(mcu).get_session_member());
-      - if:
-          condition:
-            lambda: 'return !id(pending_valid) && !id(pending_record).empty();'
-          then:
-            - delay: 200ms
-            - lambda: |-
-                id(pending_valid) = true;
-                ESP_LOGI("s7_record", "Measurement %u committed to outbox",
-                         (unsigned) id(pending_id));
+      - delay: 200ms
   # Restartable heater safety timeout, matching the Arduino deadline reset on each ON.
   - id: heater_timeout
     mode: restart
