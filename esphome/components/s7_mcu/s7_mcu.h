@@ -103,6 +103,8 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   uint16_t get_weight_raw() const { return weight_raw_; }
   bool is_mcu_alive() const { return mcu_alive_; }
   uint32_t get_scan_count() const { return scan_count_; }
+  void set_active_member(uint8_t member) { active_member_ = member <= 3 ? member : 0; }
+  uint8_t get_session_member() const { return session_member_; }
 
   void set_weight_hi(uint8_t v) { weight_hi_ = v; }
   void set_weight_lo(uint8_t v) { weight_lo_ = v; }
@@ -223,6 +225,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       // A scale session gets exactly one attempt, including failed scans.
       // The next attempt is allowed only after the person steps off.
       measurement_done_ = true;
+      session_member_ = active_member_;
       cs1258_->scan();
       last_impedance_ms_ = millis();
       ++scan_count_;
@@ -271,6 +274,8 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   uint32_t weight_stable_since_{0};
   uint32_t last_impedance_ms_{0};
   uint32_t scan_count_{0};
+  uint8_t active_member_{0};
+  uint8_t session_member_{0};
   uint16_t last_published_weight_raw_{0xFFFF};
 };
 
