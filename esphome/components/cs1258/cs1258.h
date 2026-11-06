@@ -113,7 +113,7 @@ class CS1258Component : public Component {
 
   // --- Accessors ---
   bool is_ok() const { return scan_ok_; }
-  /// Mirrors Arduino m.csOk: true only after a complete CS1258 scan.
+  /// True when the CS1258 reset and register initialization succeeded.
   bool is_ready() const { return ready_; }
   bool is_body_valid() const { return body_valid_; }
   void clear_body_valid() { body_valid_ = false; }
