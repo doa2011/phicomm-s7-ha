@@ -39,6 +39,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     measurement_id_sensor_ = nullptr;
     measurement_valid_sensor_ = nullptr;
     if (mcu_alive_sensor_ != nullptr) mcu_alive_sensor_->publish_state(false);
+    if (measurement_valid_sensor_ != nullptr) measurement_valid_sensor_->publish_state(false);
   }
 
   void loop() override {
@@ -85,6 +86,11 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       mcu_alive_ = false;
       if (mcu_alive_sensor_ != nullptr)
         mcu_alive_sensor_->publish_state(false);
+      // A silent MCU means the current weighing session has ended/reset.
+      person_on_scale_ = false;
+      measurement_done_ = false;
+      if (measurement_valid_sensor_ != nullptr)
+        measurement_valid_sensor_->publish_state(false);
     }
   }
 
