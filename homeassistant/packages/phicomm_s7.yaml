@@ -200,8 +200,11 @@ automation:
         event_type: esphome.s7_measurement
     variables:
       record_csv: "{{ trigger.event.data.record | default('') }}"
-      member_id: "{{ trigger.event.data.record.split(',')[2] | int(0) if trigger.event.data.record.split(',') | length > 1 else 0 }}"
-      measurement_id: "{{ trigger.event.data.record.split(',')[1] | int(0) if trigger.event.data.record.split(',') | length > 0 else 0 }}"
+      member_id: "{{ trigger.event.data.record.split(',')[2] | int(0) if trigger.event.data.record.split(',') | length > 2 else 0 }}"
+      measurement_id: "{{ trigger.event.data.record.split(',')[1] | int(0) if trigger.event.data.record.split(',') | length > 1 else 0 }}"
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.event.data.record.split(',')[0] == 'S7V2' and trigger.event.data.record.split(',') | length == 21 }}"
     actions:
       - choose:
           - conditions:
