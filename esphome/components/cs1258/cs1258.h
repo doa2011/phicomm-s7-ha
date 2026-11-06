@@ -41,6 +41,24 @@ class CS1258Component : public Component {
     scan_log_[0] = '\0';
     if (impedance_sensor_ != nullptr) impedance_sensor_->publish_state(0.0f);
     if (body_res_sensor_ != nullptr) body_res_sensor_->publish_state(0);
+    publish_channel_(lr_leg_sensor_, 0);
+    publish_channel_(rl_leg_sensor_, 0);
+    publish_channel_(lr_hand_sensor_, 0);
+    publish_channel_(r_leg_sensor_, 0);
+    publish_channel_(l_leg_sensor_, 0);
+    publish_channel_(lh_ll_sensor_, 0);
+    publish_channel_(lh_rl_sensor_, 0);
+    publish_channel_(rh_ll_sensor_, 0);
+    publish_channel_(rh_rl_sensor_, 0);
+    publish_channel_(z1_sensor_, 0);
+    publish_channel_(z2_sensor_, 0);
+    publish_channel_(z3_sensor_, 0);
+    publish_channel_(z4_sensor_, 0);
+    publish_channel_(z5_sensor_, 0);
+    publish_channel_(short_adc_sensor_, 0);
+    publish_channel_(cal_a_sensor_, 0);
+    publish_channel_(cal_b_sensor_, 0);
+    publish_channel_(scan_ms_sensor_, 0);
     uint32_t t0 = millis();
 
     if (!reset_init()) {
@@ -179,8 +197,8 @@ class CS1258Component : public Component {
     va_end(args);
   }
 
-  void publish_channel_(sensor::Sensor *sensor, uint16_t value) {
-    if (sensor != nullptr) sensor->publish_state(value);
+  void publish_channel_(sensor::Sensor *sensor, uint32_t value) {
+    if (sensor != nullptr) sensor->publish_state(static_cast<float>(value));
   }
 
   // --- Low-level bit-bang ---
