@@ -87,6 +87,33 @@ cs1258:
     id: body_res
     icon: "mdi:resistor"
     entity_category: diagnostic
+  lr_leg:
+    name: "CS1258 LR Leg"
+    entity_category: diagnostic
+  rl_leg:
+    name: "CS1258 RL Leg"
+    entity_category: diagnostic
+  lr_hand:
+    name: "CS1258 LR Hand"
+    entity_category: diagnostic
+  r_leg:
+    name: "CS1258 Right Leg"
+    entity_category: diagnostic
+  l_leg:
+    name: "CS1258 Left Leg"
+    entity_category: diagnostic
+  lh_ll:
+    name: "CS1258 LH-LL"
+    entity_category: diagnostic
+  lh_rl:
+    name: "CS1258 LH-RL"
+    entity_category: diagnostic
+  rh_ll:
+    name: "CS1258 RH-LL"
+    entity_category: diagnostic
+  rh_rl:
+    name: "CS1258 RH-RL"
+    entity_category: diagnostic
 
 # --- Heater ---
 switch:
