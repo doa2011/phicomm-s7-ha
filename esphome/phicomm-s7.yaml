@@ -316,7 +316,7 @@ script:
           auto idx = id(user_sex).active_index();
           if (idx.has_value()) male = (idx.value() == 0);  // 0=男, 1=女
 
-          if (w <= 0 || h <= 0) return;
+          if (isnan(w) || isnan(h_cm) || isnan(age) || w <= 0 || h <= 0) return;
 
           // BMI
           float bmi_val = w / (h * h);
