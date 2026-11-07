@@ -20,7 +20,7 @@ cards:
             'Error': '准备失败，请检查设备'
           } %}
           {% set online = states('binary_sensor.phicomm_s7_mcu_online') %}
-          {% set pending = namespace(count=0, slot=0, id=0, weight='') %}
+          {% set pending = namespace(count=0, slot=0, id=0, weight='', best='暂无匹配', diff=999) %}
           {% for i in range(1, 6) %}
             {% set p = states('input_text.s7_pending_' ~ i).split(',') %}
             {% if p | length == 21 and p[0] == 'S7V2' %}
@@ -33,7 +33,18 @@ cards:
             {% endif %}
           {% endfor %}
           {% if pending.slot > 0 %}
-            {{ labels.get(s, s) }} · 设备：{{ '在线' if online == 'on' else '休眠 / 离线' }} · 最近测量：待确认 {{ pending.weight }} kg · 待归档 {{ pending.count }} 条
+            {% for n in [1, 2, 3, 4] %}
+              {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+              {% if old | length == 21 and old[0] == 'S7V2' and (n != 4 or is_state('input_boolean.s7_member4_created', 'on')) %}
+                {% set d = (pending.weight | float(0) - (old[3] | float(0))) | abs %}
+                {% if d < pending.diff %}
+                  {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                  {% set pending.best = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
+                  {% set pending.diff = d %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ labels.get(s, s) }} · 设备：{{ '在线' if online == 'on' else '休眠 / 离线' }} · 最近测量：待确认 {{ pending.weight }} kg{% if pending.diff <= 3 %} · 建议 {{ pending.best }}{% endif %} · 待归档 {{ pending.count }} 条
           {% else %}
             {% set last = namespace(ts=0, name='暂无记录', weight='') %}
             {% for n in [1, 2, 3, 4] %}
@@ -277,8 +288,6 @@ cards:
       - type: entities
         show_header_toggle: false
         entities:
-          - entity: script.s7_measure_member1
-            name: 开始测量
           - entity: input_number.s7_member1_age
             name: 年龄
           - entity: input_number.s7_member1_height
@@ -314,8 +323,6 @@ cards:
       - type: entities
         show_header_toggle: false
         entities:
-          - entity: script.s7_measure_member2
-            name: 开始测量
           - entity: input_number.s7_member2_age
             name: 年龄
           - entity: input_number.s7_member2_height
@@ -351,8 +358,6 @@ cards:
       - type: entities
         show_header_toggle: false
         entities:
-          - entity: script.s7_measure_member3
-            name: 开始测量
           - entity: input_number.s7_member3_age
             name: 年龄
           - entity: input_number.s7_member3_height
