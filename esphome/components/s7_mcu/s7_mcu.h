@@ -131,6 +131,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     return true;
   }
   uint8_t get_session_member() const { return session_member_; }
+  void set_scan_queue_available(bool available) { scan_queue_available_ = available; }
 
   void set_weight_hi(uint8_t v) { weight_hi_ = v; }
   void set_weight_lo(uint8_t v) { weight_lo_ = v; }
@@ -258,12 +259,14 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     }
     const bool stable = (uint32_t)(now - weight_stable_since_) >= WEIGHT_STABLE_MS;
     const bool cooldown_done = (uint32_t)(now - last_impedance_ms_) > IMPEDANCE_COOL_MS;
-    if (stable && active_member_synced_ && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
+    if (stable && scan_queue_available_ && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
       ESP_LOGI(TAG, "Weight stable; starting CS1258 scan");
       // A scale session gets exactly one attempt, including failed scans.
       // The next attempt is allowed only after the person steps off.
       measurement_done_ = true;
-      session_member_ = active_member_synced_ ? active_member_ : 0;
+      // Identity is resolved in Home Assistant after the measurement.
+      // Never bind a scan to a stale or previously selected member.
+      session_member_ = 0;
       cs1258_->scan();
       last_impedance_ms_ = millis();
       ++scan_count_;
@@ -318,6 +321,7 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   uint8_t active_member_{0};
   uint8_t session_member_{0};
   bool active_member_synced_{false};
+  bool scan_queue_available_{true};
   uint16_t last_published_weight_raw_{0xFFFF};
 };
 
