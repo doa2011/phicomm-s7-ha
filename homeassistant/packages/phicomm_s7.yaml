@@ -90,6 +90,11 @@ input_text:
     name: S7 Unassigned Last Measurement (JSON)
     max: 255
 
+timer:
+  s7_measurement_waiting:
+    name: S7 Waiting for Person
+    duration: "00:02:00"
+
 script:
   s7_apply_profile:
     alias: S7 Apply Selected Profile
@@ -187,12 +192,6 @@ script:
             data:
               member_id: 0
 
-timer:
-  s7_measurement_waiting:
-    name: S7 Waiting for Person
-    duration: "00:02:00"
-
-script:
   s7_prepare_measurement:
     alias: S7 Prepare Measurement
     mode: single
