@@ -351,8 +351,8 @@ script:
       male: "{{ states('input_select.s7_member' ~ (member_id | int) ~ '_sex') == 'Male' }}"
       normalized_record: >-
         {% set p = record_csv.split(',') %}
-        {% set w = p[3] | float(0) %}
-        {% set z = p[4] | float(0) %}
+        {% set w = p[3] | float(0) if p | length > 3 else 0 %}
+        {% set z = p[4] | float(0) if p | length > 4 else 0 %}
         {% set h = height_cm | float(170) %}
         {% set a = age | float(30) %}
         {% set bmi = w / ((h / 100) ** 2) if w > 0 and h > 0 else 0 %}
