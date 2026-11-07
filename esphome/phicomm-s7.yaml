@@ -105,7 +105,6 @@ external_components:
 # --- MCU weight sensor ---
 s7_mcu:
   id: mcu
-  update_interval: 100ms
   cs1258_id: bia
   weight_hi: 0
   weight_lo: 1
