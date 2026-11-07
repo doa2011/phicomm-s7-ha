@@ -2,6 +2,14 @@
 # Include this file with: homeassistant: packages: !include_dir_named packages
 
 input_select:
+  s7_measurement_target:
+    name: S7 Measurement Target
+    options: [Unassigned, Member 1, Member 2, Member 3]
+    initial: Unassigned
+  s7_measurement_status:
+    name: S7 Measurement Status
+    options: [Idle, Preparing, Waiting, Measuring, Saving, Error]
+    initial: Idle
   s7_active_person:
     name: S7 Active Person
     options: [Unassigned, Member 1, Member 2, Member 3]
@@ -179,6 +187,102 @@ script:
             data:
               member_id: 0
 
+timer:
+  s7_measurement_waiting:
+    name: S7 Waiting for Person
+    duration: "00:02:00"
+
+script:
+  s7_prepare_measurement:
+    alias: S7 Prepare Measurement
+    mode: single
+    fields:
+      member_name:
+        description: Member label
+        required: true
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ states('number.phicomm_s7_age') not in ['unknown', 'unavailable']
+             and states('input_select.s7_measurement_status') in ['Idle', 'Error'] }}
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Preparing
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: "{{ member_name }}"
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_active_person
+        data:
+          option: "{{ member_name }}"
+      - action: script.s7_apply_profile
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Waiting
+      - action: timer.start
+        target:
+          entity_id: timer.s7_measurement_waiting
+        data:
+          duration: "00:02:00"
+
+  s7_measure_member1:
+    alias: S7 Measure Member 1
+    mode: single
+    sequence:
+      - action: script.s7_prepare_measurement
+        data:
+          member_name: Member 1
+
+  s7_measure_member2:
+    alias: S7 Measure Member 2
+    mode: single
+    sequence:
+      - action: script.s7_prepare_measurement
+        data:
+          member_name: Member 2
+
+  s7_measure_member3:
+    alias: S7 Measure Member 3
+    mode: single
+    sequence:
+      - action: script.s7_prepare_measurement
+        data:
+          member_name: Member 3
+
+  s7_cancel_measurement:
+    alias: S7 Cancel Waiting Measurement
+    mode: single
+    sequence:
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+      - action: timer.cancel
+        target:
+          entity_id: timer.s7_measurement_waiting
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Idle
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: Unassigned
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_active_person
+        data:
+          option: Unassigned
+      - action: script.s7_apply_profile
+
 automation:
   - id: s7_profile_sync
     alias: S7 Sync Selected Profile
@@ -186,7 +290,6 @@ automation:
     triggers:
       - trigger: state
         entity_id:
-          - input_select.s7_active_person
           - input_number.s7_member1_age
           - input_number.s7_member1_height
           - input_select.s7_member1_sex
@@ -203,6 +306,57 @@ automation:
         value_template: "{{ states('number.phicomm_s7_age') not in ['unknown', 'unavailable'] }}"
     actions:
       - action: script.s7_apply_profile
+
+  - id: s7_measurement_wait_timeout
+    alias: S7 Measurement Waiting Timeout
+    mode: single
+    triggers:
+      - trigger: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.s7_measurement_waiting
+    conditions:
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Idle
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: Unassigned
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_active_person
+        data:
+          option: Unassigned
+      - action: script.s7_apply_profile
+
+  - id: s7_measurement_started
+    alias: S7 Measurement Started
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.phicomm_s7_weight
+        above: 3
+    conditions:
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+    actions:
+      - action: timer.cancel
+        target:
+          entity_id: timer.s7_measurement_waiting
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Measuring
 
   # ESPHome sends one complete CSV record. The device keeps it in flash until
   # this automation stores it and calls the matching ACK action.
@@ -221,6 +375,19 @@ automation:
       - condition: template
         value_template: "{{ trigger.event.data.record.split(',')[0] == 'S7V2' and trigger.event.data.record.split(',') | length == 21 }}"
     actions:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('input_select.s7_measurement_target') == 'Member ' ~ (member_id | string) and states('input_select.s7_measurement_status') in ['Waiting', 'Measuring'] }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_measurement_status
+                data:
+                  option: Saving
+              - action: timer.cancel
+                target:
+                  entity_id: timer.s7_measurement_waiting
       - choose:
           - conditions:
               - condition: template
@@ -259,6 +426,26 @@ automation:
       - action: esphome.phicomm_s7_ack_measurement
         data:
           measurement_id: "{{ measurement_id }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('input_select.s7_measurement_target') == 'Member ' ~ (member_id | string) and states('input_select.s7_measurement_status') == 'Saving' }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_measurement_status
+                data:
+                  option: Idle
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_measurement_target
+                data:
+                  option: Unassigned
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_active_person
+                data:
+                  option: Unassigned
 
 template:
   - sensor:
