@@ -1,0 +1,72 @@
+# Lovelace cards for the Phicomm S7 three-member workflow.
+# Paste this vertical-stack into a dashboard YAML card.
+
+type: vertical-stack
+cards:
+  - type: entities
+    title: S7 · Member 1
+    show_header_toggle: false
+    entities:
+      - entity: sensor.s7_member_1_weight
+        name: Weight
+      - entity: sensor.s7_member_1_bmi
+        name: BMI
+      - entity: sensor.s7_member_1_body_fat
+        name: Body fat
+      - entity: sensor.s7_member_1_water
+        name: Water
+      - entity: sensor.s7_member_1_muscle
+        name: Muscle
+      - entity: sensor.s7_member_1_bmr
+        name: BMR
+      - entity: sensor.s7_member_1_bone_mass
+        name: Bone mass
+      - entity: script.s7_measure_member1
+        name: Start measurement
+  - type: entities
+    title: S7 · Member 2
+    show_header_toggle: false
+    entities:
+      - entity: sensor.s7_member_2_weight
+        name: Weight
+      - entity: sensor.s7_member_2_bmi
+        name: BMI
+      - entity: sensor.s7_member_2_body_fat
+        name: Body fat
+      - entity: sensor.s7_member_2_water
+        name: Water
+      - entity: sensor.s7_member_2_muscle
+        name: Muscle
+      - entity: sensor.s7_member_2_bmr
+        name: BMR
+      - entity: sensor.s7_member_2_bone_mass
+        name: Bone mass
+      - entity: script.s7_measure_member2
+        name: Start measurement
+  - type: entities
+    title: S7 · Member 3
+    show_header_toggle: false
+    entities:
+      - entity: sensor.s7_member_3_weight
+        name: Weight
+      - entity: sensor.s7_member_3_bmi
+        name: BMI
+      - entity: sensor.s7_member_3_body_fat
+        name: Body fat
+      - entity: sensor.s7_member_3_water
+        name: Water
+      - entity: sensor.s7_member_3_muscle
+        name: Muscle
+      - entity: sensor.s7_member_3_bmr
+        name: BMR
+      - entity: sensor.s7_member_3_bone_mass
+        name: Bone mass
+      - entity: script.s7_measure_member3
+        name: Start measurement
+  - type: entities
+    title: S7 · Measurement status
+    entities:
+      - entity: input_select.s7_measurement_target
+      - entity: input_select.s7_measurement_status
+      - entity: script.s7_cancel_measurement
+        name: Cancel while waiting
