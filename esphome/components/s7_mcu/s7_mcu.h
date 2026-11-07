@@ -16,7 +16,6 @@ static constexpr uint32_t MCU_TIMEOUT_MS = 5000;
 static constexpr float WEIGHT_ON_THRESH = 3.0f;
 static constexpr float WEIGHT_STABLE_DELTA = 0.3f;
 static constexpr uint32_t WEIGHT_STABLE_MS = 3000;
-static constexpr uint32_t PROFILE_SYNC_WAIT_MS = 12000;
 static constexpr uint32_t MEMBER_ARM_TIMEOUT_MS = 120000;
 static constexpr uint32_t IMPEDANCE_COOL_MS = 20000;
 static const char *const TAG = "s7_mcu";
@@ -110,10 +109,25 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   bool is_mcu_alive() const { return mcu_alive_; }
   uint32_t get_scan_count() const { return scan_count_; }
   bool set_active_member(uint8_t member) {
-    if (person_on_scale_) return false;
-    active_member_ = member <= 3 ? member : 0;
+    const uint8_t next_member = member <= 3 ? member : 0;
+    // The first HA sync may arrive after the user has stepped on and awakened
+    // the scale. Accept that first assignment, but never switch members after
+    // one has been armed for the current on-scale session.
+    if (measurement_done_) return false;
+    if (person_on_scale_ && active_member_synced_ && active_member_ != next_member)
+      return false;
+    active_member_ = next_member;
     active_member_synced_ = true;
     active_member_set_ms_ = millis();
+    return true;
+  }
+
+  bool clear_active_member() {
+    // Cancellation is allowed only before the impedance scan has started.
+    if (measurement_done_) return false;
+    active_member_ = 0;
+    active_member_synced_ = false;
+    active_member_set_ms_ = 0;
     return true;
   }
   uint8_t get_session_member() const { return session_member_; }
@@ -232,7 +246,6 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       if (cs1258_ != nullptr) cs1258_->clear_body_valid();
       stable_weight_ = weight_kg_;
       weight_stable_since_ = now;
-      weight_session_started_ = now;
       ESP_LOGI(TAG, "Weight session started: %.2f kg", weight_kg_);
     } else {
       float diff = weight_kg_ - stable_weight_;
@@ -244,10 +257,8 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       }
     }
     const bool stable = (uint32_t)(now - weight_stable_since_) >= WEIGHT_STABLE_MS;
-    const bool profile_ready = active_member_synced_ ||
-        (uint32_t)(now - weight_session_started_) >= PROFILE_SYNC_WAIT_MS;
     const bool cooldown_done = (uint32_t)(now - last_impedance_ms_) > IMPEDANCE_COOL_MS;
-    if (stable && profile_ready && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
+    if (stable && active_member_synced_ && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
       ESP_LOGI(TAG, "Weight stable; starting CS1258 scan");
       // A scale session gets exactly one attempt, including failed scans.
       // The next attempt is allowed only after the person steps off.
@@ -301,7 +312,6 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   bool measurement_done_{false};
   float stable_weight_{0.0f};
   uint32_t weight_stable_since_{0};
-  uint32_t weight_session_started_{0};
   uint32_t active_member_set_ms_{0};
   uint32_t last_impedance_ms_{0};
   uint32_t scan_count_{0};
