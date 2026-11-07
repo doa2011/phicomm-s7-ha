@@ -53,3 +53,14 @@ The complete CSV is retained in the HA `input_text` helper. The template sensors
 - `sensor.s7_member_1_weight`, `sensor.s7_member_1_bmi`, `sensor.s7_member_1_body_fat`, etc.: per-member metric sensors. Equivalent entities are created for members 2 and 3.
 
 The input_text helpers contain the latest full record, while Recorder history of the metric template sensors provides the trend history. The helpers themselves are not a multi-row database.
+
+
+## Member-select measurement workflow
+
+Use `script.s7_measure_member1`, `script.s7_measure_member2`, or `script.s7_measure_member3` from the HA dashboard. Each script applies the selected member's age, height, and sex before invoking the existing `esphome.phicomm_s7_set_active_member` action. The workflow then enters Waiting for up to two minutes. The first actual scale weight above 3 kg changes the status to Measuring and cancels the HA waiting timer.
+
+The ESPHome component locks the selected member once a person steps onto the scale. It rejects member changes during a weighing session, clears the member assignment after step-off, and expires an unused selection after 120 seconds. The HA timer is therefore backed by device-side expiry as well; a late step-on cannot inherit an expired target.
+
+Status helper: `input_select.s7_measurement_status` (Idle, Preparing, Waiting, Measuring, Saving, Error). Target helper: `input_select.s7_measurement_target`. The cancel script `script.s7_cancel_measurement` only works while Waiting.
+
+The existing S7V2 CSV schema, two persistent outbox slots, event name, archive helpers, and ACK service remain unchanged. A ready-to-paste built-in Lovelace card stack is in `homeassistant/lovelace/phicomm_s7_cards.yaml`.
