@@ -306,6 +306,30 @@ automation:
     actions:
       - action: script.s7_apply_profile
 
+  - id: s7_measurement_prepare_watchdog
+    alias: S7 Measurement Preparation Watchdog
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_select.s7_measurement_status
+        to: Preparing
+        for: "00:00:15"
+    conditions:
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Preparing
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Error
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: Unassigned
+
   - id: s7_measurement_wait_timeout
     alias: S7 Measurement Waiting Timeout
     mode: single
