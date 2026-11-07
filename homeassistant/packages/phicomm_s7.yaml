@@ -362,7 +362,7 @@ script:
         target:
           entity_id: "{{ 'input_text.s7_member' ~ (member_id | int) ~ '_record' }}"
         data:
-          value: "{{ normalized_record }}"
+          value: "{{ normalized_record | trim }}"
       - action: input_text.set_value
         target:
           entity_id: "{{ pending_entity }}"
