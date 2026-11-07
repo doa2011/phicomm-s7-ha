@@ -25,7 +25,10 @@ input_select:
     options: [Select, Male, Female]
   s7_pending_selected:
     name: S7 Selected Pending Slot
-    options: [None, "1", "2", "3", "4", "5"]
+    options: [Closed, "1", "2", "3", "4", "5"]
+  s7_profile_editing:
+    name: S7 Profile Being Edited
+    options: [Closed, "1", "2", "3", "4"]
 
 input_boolean:
   s7_pending_expanded:
@@ -39,8 +42,8 @@ input_boolean:
 input_number:
   s7_member1_age:
     name: S7 Member 1 Age
-    min: 10
-    max: 99
+    min: 0
+    max: 120
     step: 1
     mode: box
   s7_member1_height:
@@ -52,8 +55,8 @@ input_number:
     mode: box
   s7_member2_age:
     name: S7 Member 2 Age
-    min: 10
-    max: 99
+    min: 0
+    max: 120
     step: 1
     mode: box
   s7_member2_height:
@@ -65,8 +68,8 @@ input_number:
     mode: box
   s7_member3_age:
     name: S7 Member 3 Age
-    min: 10
-    max: 99
+    min: 0
+    max: 120
     step: 1
     mode: box
   s7_member3_height:
@@ -79,7 +82,7 @@ input_number:
   s7_member4_age:
     name: S7 Member 4 Age
     min: 0
-    max: 99
+    max: 120
     initial: 0
     step: 1
     mode: box
@@ -91,6 +94,24 @@ input_number:
     step: 1
     unit_of_measurement: cm
     mode: box
+
+input_datetime:
+  s7_member1_birthdate:
+    name: S7 Member 1 Birth Date
+    has_date: true
+    has_time: false
+  s7_member2_birthdate:
+    name: S7 Member 2 Birth Date
+    has_date: true
+    has_time: false
+  s7_member3_birthdate:
+    name: S7 Member 3 Birth Date
+    has_date: true
+    has_time: false
+  s7_member4_birthdate:
+    name: S7 Member 4 Birth Date
+    has_date: true
+    has_time: false
 
 input_text:
   s7_member1_name:
@@ -403,7 +424,7 @@ script:
              and record_csv.split(',') | length == 21
              and record_csv.split(',')[0] == 'S7V2'
              and (record_csv.split(',')[2] | int(0)) == 0
-             and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and states('input_number.s7_member4_age') | float(0) >= 10 and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
+             and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and states('input_datetime.s7_member4_birthdate') not in ['', 'unknown', 'unavailable'] and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
       - action: input_text.set_value
         target:
           entity_id: "{{ 'input_text.s7_member' ~ (member_id | int) ~ '_record' }}"
@@ -426,7 +447,7 @@ script:
         target:
           entity_id: input_select.s7_pending_selected
         data:
-          option: "None"
+          option: Closed
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.s7_pending_expanded
@@ -447,16 +468,54 @@ script:
         {% endfor %}
         {{ ns.slot }}
     sequence:
-      - action: input_select.select_option
-        target:
-          entity_id: input_select.s7_pending_selected
-        data:
-          option: "{{ latest_slot if latest_slot | int(0) > 0 else 'None' }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ latest_slot | int(0) > 0 }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_pending_selected
+                data:
+                  option: "{{ latest_slot | int | string }}"
+        default:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.s7_pending_selected
+            data:
+              option: Closed
       - action: input_boolean.toggle
         target:
           entity_id: input_boolean.s7_pending_expanded
 
   # Confirm the record currently selected by the unified Lovelace panel.
+  s7_toggle_member_profile:
+    alias: S7 Toggle Member Profile Editor
+    mode: restart
+    fields:
+      member_id:
+        description: Member number (1-4)
+        required: true
+    sequence:
+      - condition: template
+        value_template: "{{ member_id | int in [1, 2, 3, 4] and (member_id | int != 4 or is_state('input_boolean.s7_member4_created', 'on')) }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('input_select.s7_profile_editing') == (member_id | int | string) }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_profile_editing
+                data:
+                  option: Closed
+        default:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.s7_profile_editing
+            data:
+              option: "{{ member_id | int | string }}"
+
   s7_confirm_selected_pending:
     alias: S7 Confirm Selected Pending Measurement
     mode: queued
@@ -503,12 +562,38 @@ script:
         target:
           entity_id: input_select.s7_pending_selected
         data:
-          option: "None"
+          option: Closed
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.s7_pending_expanded
 
 automation:
+  - id: s7_birthdate_age_sync
+    alias: S7 Calculate Age From Birth Date
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_datetime.s7_member1_birthdate
+          - input_datetime.s7_member2_birthdate
+          - input_datetime.s7_member3_birthdate
+          - input_datetime.s7_member4_birthdate
+    actions:
+      - variables:
+          member_id: "{{ trigger.entity_id | regex_findall_index('member([1-4])') }}"
+          birthdate: "{{ states(trigger.entity_id) }}"
+          born: "{{ as_datetime(birthdate, none) }}"
+          calculated_age: >-
+            {% set b = as_datetime(birthdate, none) %}
+            {{ now().year - b.year - (1 if (now().month, now().day) < (b.month, b.day) else 0) if b else -1 }}
+      - condition: template
+        value_template: "{{ born is not none and calculated_age | int(0) >= 0 }}"
+      - action: input_number.set_value
+        target:
+          entity_id: "{{ 'input_number.s7_member' ~ member_id ~ '_age' }}"
+        data:
+          value: "{{ calculated_age | int }}"
+
   - id: s7_profile_sync
     alias: S7 Sync Selected Profile
     mode: restart
