@@ -3,6 +3,44 @@
 
 type: vertical-stack
 cards:
+  - type: markdown
+    title: 当前测量进度
+    content: |
+      {% set s = states('input_select.s7_measurement_status') %}
+      {% set labels = {'Idle':'空闲，等待开始','Preparing':'正在准备测量','Waiting':'等待设备唤醒/等待上秤','Measuring':'正在测量，请保持站立','Saving':'测量完成，正在保存数据','Error':'准备失败，请检查设备和自动化'} %}
+      {% set target = states('input_select.s7_measurement_target') %}
+      {% set online = states('binary_sensor.phicomm_s7_mcu_online') %}
+      **状态：{{ labels.get(s, s) }}**
+
+      **测量对象：** {{ target if target not in ['unknown', 'unavailable', 'Unassigned'] else '未指定' }}
+
+      **S7设备：** {{ '在线' if online == 'on' else '休眠/离线' }}
+
+      {% if s == 'Waiting' and online != 'on' %}
+      已记录测量对象。S7休眠时不会立即连接；请直接站上体脂秤唤醒设备。
+      {% elif s == 'Waiting' %}
+      设备已在线，正在等待测量开始；请保持站立。
+      {% elif s == 'Measuring' %}
+      正在采集体脂数据，请不要下秤。
+      {% elif s == 'Saving' %}
+      数据正在归档，完成后状态将自动恢复空闲。
+      {% elif s == 'Error' %}
+      请检查 Home Assistant 自动化执行轨迹及 ESPHome 设备连接状态。
+      {% endif %}
+  - type: entities
+    title: 测量设备状态
+    show_header_toggle: false
+    entities:
+      - entity: input_select.s7_measurement_status
+        name: 测量状态
+      - entity: input_select.s7_measurement_target
+        name: 测量对象
+      - entity: input_select.s7_active_person
+        name: 当前锁定成员
+      - entity: binary_sensor.phicomm_s7_mcu_online
+        name: S7 MCU在线
+      - entity: timer.s7_measurement_waiting
+        name: 等待上秤倒计时
   - type: entities
     title: 体脂秤 · 成员 1
     show_header_toggle: false
