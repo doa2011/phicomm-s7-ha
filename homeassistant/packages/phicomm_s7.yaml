@@ -4,7 +4,7 @@
 input_select:
   s7_measurement_target:
     name: S7 Measurement Target
-    options: [Unassigned, Member 1, Member 2, Member 3]
+    options: [Unassigned, Member 1, Member 2, Member 3, Member 4]
   s7_measurement_status:
     name: S7 Measurement Status
     options: [Idle, Preparing, Waiting, Measuring, Saving, Error]
@@ -22,7 +22,7 @@ input_select:
     options: [Male, Female]
   s7_member4_sex:
     name: S7 Member 4 Sex
-    options: [Male, Female]
+    options: [Select, Male, Female]
 
 input_number:
   s7_member1_age:
@@ -66,14 +66,16 @@ input_number:
     mode: box
   s7_member4_age:
     name: S7 Member 4 Age
-    min: 10
+    min: 0
     max: 99
+    initial: 0
     step: 1
     mode: box
   s7_member4_height:
     name: S7 Member 4 Height
-    min: 100
+    min: 0
     max: 230
+    initial: 0
     step: 1
     unit_of_measurement: cm
     mode: box
