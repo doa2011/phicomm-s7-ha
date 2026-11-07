@@ -462,6 +462,8 @@ cards:
     title: 体脂秤 · 成员 1
     show_header_toggle: false
     entities:
+      - entity: input_text.s7_member1_name
+        name: 姓名
       - entity: input_number.s7_member1_age
         name: 年龄
       - entity: input_number.s7_member1_height
@@ -482,12 +484,12 @@ cards:
         name: 基础代谢
       - entity: sensor.s7_member_1_bone_mass
         name: 骨量
-      - entity: script.s7_measure_member1
-        name: 开始测量
   - type: entities
     title: 体脂秤 · 成员 2
     show_header_toggle: false
     entities:
+      - entity: input_text.s7_member2_name
+        name: 姓名
       - entity: input_number.s7_member2_age
         name: 年龄
       - entity: input_number.s7_member2_height
@@ -508,12 +510,12 @@ cards:
         name: 基础代谢
       - entity: sensor.s7_member_2_bone_mass
         name: 骨量
-      - entity: script.s7_measure_member2
-        name: 开始测量
   - type: entities
     title: 体脂秤 · 成员 3
     show_header_toggle: false
     entities:
+      - entity: input_text.s7_member3_name
+        name: 姓名
       - entity: input_number.s7_member3_age
         name: 年龄
       - entity: input_number.s7_member3_height
@@ -534,8 +536,6 @@ cards:
         name: 基础代谢
       - entity: sensor.s7_member_3_bone_mass
         name: 骨量
-      - entity: script.s7_measure_member3
-        name: 开始测量
   - type: entities
     title: 体脂秤 · 测量状态
     entities:
