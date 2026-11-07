@@ -43,7 +43,11 @@ cards:
               
               - 体重：**{{ p[3] }} kg**
               - 阻抗：{{ p[4] }} Ω
+              {% if ns.diff <= 3 %}
               - 初步建议：**{{ ns.best }}**
+              {% else %}
+              - 未找到接近成员，建议新建用户4
+              {% endif %}
               {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
             {% else %}
               记录格式异常，请检查 ESPHome 日志。
@@ -78,7 +82,7 @@ cards:
                   pending_slot: 1
                   member_id: 3
             - type: button
-              name: 记录为新用户4
+              name: 新用户4（先填资料）
               icon: mdi:account-plus
               tap_action:
                 action: perform-action
@@ -124,7 +128,11 @@ cards:
               
               - 体重：**{{ p[3] }} kg**
               - 阻抗：{{ p[4] }} Ω
+              {% if ns.diff <= 3 %}
               - 初步建议：**{{ ns.best }}**
+              {% else %}
+              - 未找到接近成员，建议新建用户4
+              {% endif %}
               {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
             {% else %}
               记录格式异常，请检查 ESPHome 日志。
@@ -159,7 +167,7 @@ cards:
                   pending_slot: 2
                   member_id: 3
             - type: button
-              name: 记录为新用户4
+              name: 新用户4（先填资料）
               icon: mdi:account-plus
               tap_action:
                 action: perform-action
@@ -205,7 +213,11 @@ cards:
               
               - 体重：**{{ p[3] }} kg**
               - 阻抗：{{ p[4] }} Ω
+              {% if ns.diff <= 3 %}
               - 初步建议：**{{ ns.best }}**
+              {% else %}
+              - 未找到接近成员，建议新建用户4
+              {% endif %}
               {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
             {% else %}
               记录格式异常，请检查 ESPHome 日志。
@@ -240,7 +252,7 @@ cards:
                   pending_slot: 3
                   member_id: 3
             - type: button
-              name: 记录为新用户4
+              name: 新用户4（先填资料）
               icon: mdi:account-plus
               tap_action:
                 action: perform-action
@@ -286,7 +298,11 @@ cards:
               
               - 体重：**{{ p[3] }} kg**
               - 阻抗：{{ p[4] }} Ω
+              {% if ns.diff <= 3 %}
               - 初步建议：**{{ ns.best }}**
+              {% else %}
+              - 未找到接近成员，建议新建用户4
+              {% endif %}
               {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
             {% else %}
               记录格式异常，请检查 ESPHome 日志。
@@ -321,7 +337,7 @@ cards:
                   pending_slot: 4
                   member_id: 3
             - type: button
-              name: 记录为新用户4
+              name: 新用户4（先填资料）
               icon: mdi:account-plus
               tap_action:
                 action: perform-action
@@ -367,7 +383,11 @@ cards:
               
               - 体重：**{{ p[3] }} kg**
               - 阻抗：{{ p[4] }} Ω
+              {% if ns.diff <= 3 %}
               - 初步建议：**{{ ns.best }}**
+              {% else %}
+              - 未找到接近成员，建议新建用户4
+              {% endif %}
               {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
             {% else %}
               记录格式异常，请检查 ESPHome 日志。
@@ -402,7 +422,7 @@ cards:
                   pending_slot: 5
                   member_id: 3
             - type: button
-              name: 记录为新用户4
+              name: 新用户4（先填资料）
               icon: mdi:account-plus
               tap_action:
                 action: perform-action
