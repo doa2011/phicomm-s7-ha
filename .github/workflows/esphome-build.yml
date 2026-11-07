@@ -18,6 +18,18 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Validate Home Assistant and Lovelace YAML syntax
+        run: |
+          python - <<'PY'
+          import yaml
+          for path in (
+              "homeassistant/packages/phicomm_s7.yaml",
+              "homeassistant/lovelace/phicomm_s7_cards.yaml",
+          ):
+              with open(path, encoding="utf-8") as f:
+                  yaml.safe_load(f)
+              print(f"YAML syntax OK: {path}")
+          PY
       - name: Create build-only secrets
         run: |
           cat > esphome/secrets.yaml <<'EOF'
