@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
@@ -40,6 +41,9 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     last_published_weight_raw_ = 0xFFFF;
     if (mcu_alive_sensor_ != nullptr) mcu_alive_sensor_->publish_state(false);
     if (measurement_valid_sensor_ != nullptr) measurement_valid_sensor_->publish_state(false);
+    // UART frames must be drained as quickly as possible; use the supported
+    // high-frequency loop requester instead of a zero-ms scheduler interval.
+    high_freq_.start();
   }
 
   void loop() override {
@@ -264,6 +268,8 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       ESP_LOGD(TAG, "CS1258: %s", cs1258_->get_scan_log());
     }
   }
+
+  HighFrequencyLoopRequester high_freq_;
 
   // Frame parser state
   uint8_t buf_[UART_MAX_FRAME];
