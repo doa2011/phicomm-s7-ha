@@ -79,6 +79,15 @@ input_number:
     mode: box
 
 input_text:
+  s7_member1_name:
+    name: S7 Member 1 Name
+    max: 32
+  s7_member2_name:
+    name: S7 Member 2 Name
+    max: 32
+  s7_member3_name:
+    name: S7 Member 3 Name
+    max: 32
   s7_member1_record:
     name: S7 Member 1 Last Measurement (JSON)
     max: 255
@@ -379,7 +388,8 @@ script:
              and member_id | int in [1, 2, 3, 4]
              and record_csv.split(',') | length == 21
              and record_csv.split(',')[0] == 'S7V2'
-             and (record_csv.split(',')[2] | int(0)) == 0 }}
+             and (record_csv.split(',')[2] | int(0)) == 0
+             and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and states('input_number.s7_member4_age') | float(0) >= 10 and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
       - action: input_text.set_value
         target:
           entity_id: "{{ 'input_text.s7_member' ~ (member_id | int) ~ '_record' }}"
