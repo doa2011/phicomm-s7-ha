@@ -136,7 +136,7 @@ cards:
             - type: conditional
               conditions:
                 - entity: input_select.s7_pending_selected
-                  state_not: "None"
+                  state_not: "Closed"
               card:
                 type: vertical-stack
                 cards:
@@ -146,38 +146,20 @@ cards:
                       {% set p = states('input_text.s7_pending_' ~ slot).split(',') if slot in range(1, 6) else [] %}
                       {% if p | length == 21 and p[0] == 'S7V2' %}
                         {% set w = p[3] | float(0) %}
-                        {% set ns = namespace(best_id=0, best='暂无历史匹配', diff=999) %}
-                        **最近一次待确认测量 · #{{ p[1] }}**
+                        **待确认 #{{ p[1] }}** · **{{ p[3] }} kg** · 阻抗 {{ p[4] }} Ω · BMI {{ p[5] }}
 
-                        | 指标 | 测量值 |
-                        |---|---:|
-                        | 体重 | **{{ p[3] }} kg** |
-                        | 阻抗 | {{ p[4] }} Ω |
-                        | 原始 BMI | {{ p[5] }} |
-
-                        **历史体重匹配建议**
-
+                        **匹配建议**
                         {% for n in [1, 2, 3, 4] %}
                           {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
                           {% if old | length == 21 and old[0] == 'S7V2' and (n != 4 or is_state('input_boolean.s7_member4_created', 'on')) %}
                             {% set d = (w - (old[3] | float(0))) | abs %}
                             {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
                             {% set nm = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
-                            {% if d < ns.diff %}
-                              {% set ns.diff = d %}
-                              {% set ns.best_id = n %}
-                              {% set ns.best = nm %}
-                            {% endif %}
-                            - {{ nm }}：历史体重 {{ old[3] }} kg，差值 **{{ d | round(2) }} kg**{% if d <= 3 %} · 可考虑匹配{% endif %}
+                            {{ nm }} · {{ d | round(1) }} kg{% if d <= 3 %} · <ha-icon icon="mdi:check-circle" /> 推荐{% endif %}{% if not loop.last %}　{% endif %}
                           {% endif %}
                         {% endfor %}
-                        {% if ns.best_id > 0 and ns.diff <= 3 %}
-                          **最接近：{{ ns.best }}（差 {{ ns.diff | round(2) }} kg）**
-                        {% else %}
-                          暂无 3 kg 以内的历史匹配，建议核对身份或建立新用户档案。
-                        {% endif %}
                       {% else %}
-                        当前选择的待确认记录为空或格式异常。请收起后重新打开面板。
+                        当前没有有效的待确认记录。
                       {% endif %}
                   - type: markdown
                     content: |
@@ -234,8 +216,8 @@ cards:
                       entities:
                         - entity: input_text.s7_member4_name
                           name: 姓名
-                        - entity: input_number.s7_member4_age
-                          name: 年龄
+                        - entity: input_datetime.s7_member4_birthdate
+                          name: 出生年月日
                         - entity: input_number.s7_member4_height
                           name: 身高（cm）
                         - entity: input_select.s7_member4_sex
@@ -266,14 +248,14 @@ cards:
             - type: conditional
               conditions:
                 - entity: input_select.s7_pending_selected
-                  state: "None"
+                  state: "Closed"
               card:
                 type: markdown
                 content: |
                   **暂无待确认测量**
 
                   新测量完成后，数据会自动出现在这里。当前面板可以点击顶部状态卡收起。
-  # Existing household member cards remain visible below the single measurement panel.
+  # Member cards are compact; tap a member header to edit the profile.
   - type: custom:stack-in-card
     mode: vertical
     cards:
@@ -283,17 +265,30 @@ cards:
         icon: mdi:account
         icon_color: blue
         tap_action:
-          action: more-info
-          entity: input_text.s7_member1_name
+          action: perform-action
+          perform_action: script.s7_toggle_member_profile
+          data:
+            member_id: 1
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_profile_editing
+            state: "1"
+        card:
+          type: entities
+          title: 编辑成员资料
+          show_header_toggle: false
+          entities:
+            - entity: input_text.s7_member1_name
+              name: 姓名
+            - entity: input_datetime.s7_member1_birthdate
+              name: 出生年月日
+            - entity: input_number.s7_member1_height
+              name: 身高（cm）
+            - entity: input_select.s7_member1_sex
+              name: 性别
       - type: entities
         show_header_toggle: false
         entities:
-          - entity: input_number.s7_member1_age
-            name: 年龄
-          - entity: input_number.s7_member1_height
-            name: 身高
-          - entity: input_select.s7_member1_sex
-            name: 性别
           - entity: sensor.s7_member_1_weight
             name: 体重
           - entity: sensor.s7_member_1_bmi
@@ -318,17 +313,30 @@ cards:
         icon: mdi:account
         icon_color: green
         tap_action:
-          action: more-info
-          entity: input_text.s7_member2_name
+          action: perform-action
+          perform_action: script.s7_toggle_member_profile
+          data:
+            member_id: 2
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_profile_editing
+            state: "2"
+        card:
+          type: entities
+          title: 编辑成员资料
+          show_header_toggle: false
+          entities:
+            - entity: input_text.s7_member2_name
+              name: 姓名
+            - entity: input_datetime.s7_member2_birthdate
+              name: 出生年月日
+            - entity: input_number.s7_member2_height
+              name: 身高（cm）
+            - entity: input_select.s7_member2_sex
+              name: 性别
       - type: entities
         show_header_toggle: false
         entities:
-          - entity: input_number.s7_member2_age
-            name: 年龄
-          - entity: input_number.s7_member2_height
-            name: 身高
-          - entity: input_select.s7_member2_sex
-            name: 性别
           - entity: sensor.s7_member_2_weight
             name: 体重
           - entity: sensor.s7_member_2_bmi
@@ -353,17 +361,30 @@ cards:
         icon: mdi:account
         icon_color: purple
         tap_action:
-          action: more-info
-          entity: input_text.s7_member3_name
+          action: perform-action
+          perform_action: script.s7_toggle_member_profile
+          data:
+            member_id: 3
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_profile_editing
+            state: "3"
+        card:
+          type: entities
+          title: 编辑成员资料
+          show_header_toggle: false
+          entities:
+            - entity: input_text.s7_member3_name
+              name: 姓名
+            - entity: input_datetime.s7_member3_birthdate
+              name: 出生年月日
+            - entity: input_number.s7_member3_height
+              name: 身高（cm）
+            - entity: input_select.s7_member3_sex
+              name: 性别
       - type: entities
         show_header_toggle: false
         entities:
-          - entity: input_number.s7_member3_age
-            name: 年龄
-          - entity: input_number.s7_member3_height
-            name: 身高
-          - entity: input_select.s7_member3_sex
-            name: 性别
           - entity: sensor.s7_member_3_weight
             name: 体重
           - entity: sensor.s7_member_3_bmi
@@ -379,32 +400,44 @@ cards:
           - entity: sensor.s7_member_3_bone_mass
             name: 骨量
 
-  # Member 4 is hidden until the new profile has been successfully created and used.
   - type: conditional
     conditions:
       - entity: input_boolean.s7_member4_created
         state: "on"
     card:
-      type: custom:stack-in-card
+    - type: custom:stack-in-card
       mode: vertical
       cards:
         - type: custom:mushroom-template-card
           primary: "{{ states('input_text.s7_member4_name') }}"
           secondary: "年龄 {{ states('input_number.s7_member4_age') }} 岁 · 身高 {{ states('input_number.s7_member4_height') }} cm"
-          icon: mdi:account-plus
+          icon: mdi:account
           icon_color: teal
           tap_action:
-            action: more-info
-            entity: input_text.s7_member4_name
+            action: perform-action
+            perform_action: script.s7_toggle_member_profile
+            data:
+              member_id: 4
+        - type: conditional
+          conditions:
+            - entity: input_select.s7_profile_editing
+              state: "4"
+          card:
+            type: entities
+            title: 编辑成员资料
+            show_header_toggle: false
+            entities:
+              - entity: input_text.s7_member4_name
+                name: 姓名
+              - entity: input_datetime.s7_member4_birthdate
+                name: 出生年月日
+              - entity: input_number.s7_member4_height
+                name: 身高（cm）
+              - entity: input_select.s7_member4_sex
+                name: 性别
         - type: entities
           show_header_toggle: false
           entities:
-            - entity: input_number.s7_member4_age
-              name: 年龄
-            - entity: input_number.s7_member4_height
-              name: 身高
-            - entity: input_select.s7_member4_sex
-              name: 性别
             - entity: sensor.s7_member_4_weight
               name: 体重
             - entity: sensor.s7_member_4_bmi
@@ -419,3 +452,4 @@ cards:
               name: 基础代谢
             - entity: sensor.s7_member_4_bone_mass
               name: 骨量
+
