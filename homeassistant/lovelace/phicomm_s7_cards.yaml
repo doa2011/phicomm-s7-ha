@@ -249,11 +249,9 @@ cards:
                     icon: mdi:delete
                     tap_action:
                       action: perform-action
-                      perform_action: script.s7_discard_pending
+                      perform_action: script.s7_discard_selected_pending
                       confirmation:
                         text: 确定舍弃这条测量记录吗？
-                      data:
-                        pending_slot: "{{ states('input_select.s7_pending_selected') | int }}"
             - type: conditional
               conditions:
                 - entity: input_select.s7_pending_selected
@@ -264,21 +262,6 @@ cards:
                   **暂无待确认测量**
 
                   新测量完成后，数据会自动出现在这里。当前面板可以点击顶部状态卡收起。
-      - type: entities
-        title: 设备诊断
-        show_header_toggle: false
-        entities:
-          - entity: binary_sensor.phicomm_s7_mcu_online
-            name: MCU 在线
-          - entity: sensor.phicomm_s7_weight
-            name: 当前体重
-          - entity: sensor.phicomm_s7_impedance
-            name: 当前阻抗
-          - entity: sensor.phicomm_s7_measurement_id
-            name: 测量序号
-          - entity: binary_sensor.phicomm_s7_measurement_valid
-            name: 本次阻抗有效
-
   # Existing household member cards remain visible below the single measurement panel.
   - type: custom:stack-in-card
     mode: vertical
