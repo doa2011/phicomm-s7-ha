@@ -426,6 +426,7 @@ script:
              and record_csv.split(',') | length == 21
              and record_csv.split(',')[0] == 'S7V2'
              and (record_csv.split(',')[2] | int(0)) == 0
+             and age | float(30) >= 0
              and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and states('input_datetime.s7_member4_birthdate') not in ['', 'unknown', 'unavailable'] and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
       - action: input_text.set_value
         target:
@@ -580,21 +581,28 @@ automation:
           - input_datetime.s7_member2_birthdate
           - input_datetime.s7_member3_birthdate
           - input_datetime.s7_member4_birthdate
+      - trigger: homeassistant
+        event: start
+      - trigger: time
+        at: "00:05:00"
     actions:
-      - variables:
-          member_id: "{{ trigger.entity_id | regex_findall_index('member([1-4])') }}"
-          birthdate: "{{ states(trigger.entity_id) }}"
-          born: "{{ as_datetime(birthdate, none) }}"
-          calculated_age: >-
-            {% set b = as_datetime(birthdate, none) %}
-            {{ now().year - b.year - (1 if (now().month, now().day) < (b.month, b.day) else 0) if b else -1 }}
-      - condition: template
-        value_template: "{{ born is not none and calculated_age | int(0) >= 0 }}"
-      - action: input_number.set_value
-        target:
-          entity_id: "{{ 'input_number.s7_member' ~ member_id ~ '_age' }}"
-        data:
-          value: "{{ calculated_age | int }}"
+      - repeat:
+          for_each: [1, 2, 3, 4]
+          sequence:
+            - variables:
+                birthdate: "{{ states('input_datetime.s7_member' ~ repeat.item ~ '_birthdate') }}"
+                calculated_age: >-
+                  {% set b = as_datetime(birthdate, none) %}
+                  {{ now().year - b.year - (1 if (now().month, now().day) < (b.month, b.day) else 0) if b else -1 }}
+            - if:
+                - condition: template
+                  value_template: "{{ birthdate not in ['', 'unknown', 'unavailable'] and calculated_age | int(-1) >= 0 }}"
+              then:
+                - action: input_number.set_value
+                  target:
+                    entity_id: "{{ 'input_number.s7_member' ~ repeat.item ~ '_age' }}"
+                  data:
+                    value: "{{ calculated_age | int }}"
 
   - id: s7_profile_sync
     alias: S7 Sync Selected Profile
