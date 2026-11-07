@@ -589,6 +589,11 @@ automation:
              and measurement_id > 0
              and pending_entity | trim != '' }}
     actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Saving
       - action: input_text.set_value
         target:
           entity_id: "{{ pending_entity | trim }}"
@@ -600,6 +605,21 @@ automation:
       - action: esphome.phicomm_s7_ack_measurement
         data:
           measurement_id: "{{ measurement_id }}"
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Idle
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: Unassigned
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_active_person
+        data:
+          option: Unassigned
 
 template:
   - sensor:
