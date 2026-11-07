@@ -313,13 +313,16 @@ automation:
   # then arm the pending member before the MCU is allowed to scan.
   - id: s7_device_online_sync
     alias: S7 Sync Pending Member After Wake
-    mode: restart
+    mode: single
     triggers:
       - trigger: state
         entity_id: binary_sensor.phicomm_s7_mcu_online
         to: "on"
-      - trigger: state
-        entity_id: sensor.phicomm_s7_weight
+      - trigger: template
+        value_template: >-
+          {{ states('input_select.s7_measurement_status') == 'Waiting'
+             and states('binary_sensor.phicomm_s7_mcu_online') == 'on'
+             and states('sensor.phicomm_s7_weight') | float(0) > 3 }}
       - trigger: homeassistant
         event: start
     actions:
