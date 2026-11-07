@@ -318,6 +318,9 @@ automation:
       - trigger: state
         entity_id: binary_sensor.phicomm_s7_mcu_online
         to: "on"
+      # Also catch the first ESPHome entity becoming available after API reconnect.
+      - trigger: state
+        entity_id: number.phicomm_s7_age
       - trigger: template
         value_template: >-
           {{ states('input_select.s7_measurement_status') == 'Waiting'
