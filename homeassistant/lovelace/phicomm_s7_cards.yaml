@@ -4,6 +4,373 @@
 type: vertical-stack
 cards:
   - type: markdown
+    title: S7 待确认队列
+    content: |
+      {% set slots = ['input_text.s7_pending_1','input_text.s7_pending_2','input_text.s7_pending_3','input_text.s7_pending_4','input_text.s7_pending_5'] %}
+      {% set ns = namespace(count=0) %}
+      {% for e in slots %}
+        {% if states(e).split(',')[0] == 'S7V2' %}
+          {% set ns.count = ns.count + 1 %}
+        {% endif %}
+      {% endfor %}
+      **待确认记录：{{ ns.count }} / 5**
+      测量数据先进入队列，确认成员后才会计算并归档；舍弃操作只删除对应待确认记录。
+  - type: conditional
+    conditions:
+      - entity: input_text.s7_pending_1
+        state_not: ""
+    card:
+      type: vertical-stack
+      cards:
+        - type: markdown
+          content: |
+            {% set p = states('input_text.s7_pending_1').split(',') %}
+            {% if p | length == 21 and p[0] == 'S7V2' %}
+              {% set w = p[3] | float(0) %}
+              {% set ns = namespace(best='暂无历史匹配', diff=999) %}
+              {% for n in [1, 2, 3] %}
+                {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+                {% if old | length > 3 and old[0] == 'S7V2' %}
+                  {% set d = (w - (old[3] | float(0))) | abs %}
+                  {% if d < ns.diff %}
+                    {% set ns.best = '成员 ' ~ n %}
+                    {% set ns.diff = d %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              **待确认 #{{ p[1] }}**
+              
+              - 体重：**{{ p[3] }} kg**
+              - 阻抗：{{ p[4] }} Ω
+              - 初步建议：**{{ ns.best }}**
+              {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
+            {% else %}
+              记录格式异常，请检查 ESPHome 日志。
+            {% endif %}
+        - type: horizontal-stack
+          cards:
+            - type: button
+              name: 记录到成员1
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 1
+                  member_id: 1
+            - type: button
+              name: 记录到成员2
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 1
+                  member_id: 2
+            - type: button
+              name: 记录到成员3
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 1
+                  member_id: 3
+            - type: button
+              name: 舍弃
+              icon: mdi:delete
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_discard_pending
+                data:
+                  pending_slot: 1
+                  confirmation:
+                    text: 确定舍弃这条测量记录吗？
+  - type: conditional
+    conditions:
+      - entity: input_text.s7_pending_2
+        state_not: ""
+    card:
+      type: vertical-stack
+      cards:
+        - type: markdown
+          content: |
+            {% set p = states('input_text.s7_pending_2').split(',') %}
+            {% if p | length == 21 and p[0] == 'S7V2' %}
+              {% set w = p[3] | float(0) %}
+              {% set ns = namespace(best='暂无历史匹配', diff=999) %}
+              {% for n in [1, 2, 3] %}
+                {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+                {% if old | length > 3 and old[0] == 'S7V2' %}
+                  {% set d = (w - (old[3] | float(0))) | abs %}
+                  {% if d < ns.diff %}
+                    {% set ns.best = '成员 ' ~ n %}
+                    {% set ns.diff = d %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              **待确认 #{{ p[1] }}**
+              
+              - 体重：**{{ p[3] }} kg**
+              - 阻抗：{{ p[4] }} Ω
+              - 初步建议：**{{ ns.best }}**
+              {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
+            {% else %}
+              记录格式异常，请检查 ESPHome 日志。
+            {% endif %}
+        - type: horizontal-stack
+          cards:
+            - type: button
+              name: 记录到成员1
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 2
+                  member_id: 1
+            - type: button
+              name: 记录到成员2
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 2
+                  member_id: 2
+            - type: button
+              name: 记录到成员3
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 2
+                  member_id: 3
+            - type: button
+              name: 舍弃
+              icon: mdi:delete
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_discard_pending
+                data:
+                  pending_slot: 2
+                  confirmation:
+                    text: 确定舍弃这条测量记录吗？
+  - type: conditional
+    conditions:
+      - entity: input_text.s7_pending_3
+        state_not: ""
+    card:
+      type: vertical-stack
+      cards:
+        - type: markdown
+          content: |
+            {% set p = states('input_text.s7_pending_3').split(',') %}
+            {% if p | length == 21 and p[0] == 'S7V2' %}
+              {% set w = p[3] | float(0) %}
+              {% set ns = namespace(best='暂无历史匹配', diff=999) %}
+              {% for n in [1, 2, 3] %}
+                {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+                {% if old | length > 3 and old[0] == 'S7V2' %}
+                  {% set d = (w - (old[3] | float(0))) | abs %}
+                  {% if d < ns.diff %}
+                    {% set ns.best = '成员 ' ~ n %}
+                    {% set ns.diff = d %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              **待确认 #{{ p[1] }}**
+              
+              - 体重：**{{ p[3] }} kg**
+              - 阻抗：{{ p[4] }} Ω
+              - 初步建议：**{{ ns.best }}**
+              {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
+            {% else %}
+              记录格式异常，请检查 ESPHome 日志。
+            {% endif %}
+        - type: horizontal-stack
+          cards:
+            - type: button
+              name: 记录到成员1
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 3
+                  member_id: 1
+            - type: button
+              name: 记录到成员2
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 3
+                  member_id: 2
+            - type: button
+              name: 记录到成员3
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 3
+                  member_id: 3
+            - type: button
+              name: 舍弃
+              icon: mdi:delete
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_discard_pending
+                data:
+                  pending_slot: 3
+                  confirmation:
+                    text: 确定舍弃这条测量记录吗？
+  - type: conditional
+    conditions:
+      - entity: input_text.s7_pending_4
+        state_not: ""
+    card:
+      type: vertical-stack
+      cards:
+        - type: markdown
+          content: |
+            {% set p = states('input_text.s7_pending_4').split(',') %}
+            {% if p | length == 21 and p[0] == 'S7V2' %}
+              {% set w = p[3] | float(0) %}
+              {% set ns = namespace(best='暂无历史匹配', diff=999) %}
+              {% for n in [1, 2, 3] %}
+                {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+                {% if old | length > 3 and old[0] == 'S7V2' %}
+                  {% set d = (w - (old[3] | float(0))) | abs %}
+                  {% if d < ns.diff %}
+                    {% set ns.best = '成员 ' ~ n %}
+                    {% set ns.diff = d %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              **待确认 #{{ p[1] }}**
+              
+              - 体重：**{{ p[3] }} kg**
+              - 阻抗：{{ p[4] }} Ω
+              - 初步建议：**{{ ns.best }}**
+              {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
+            {% else %}
+              记录格式异常，请检查 ESPHome 日志。
+            {% endif %}
+        - type: horizontal-stack
+          cards:
+            - type: button
+              name: 记录到成员1
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 4
+                  member_id: 1
+            - type: button
+              name: 记录到成员2
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 4
+                  member_id: 2
+            - type: button
+              name: 记录到成员3
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 4
+                  member_id: 3
+            - type: button
+              name: 舍弃
+              icon: mdi:delete
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_discard_pending
+                data:
+                  pending_slot: 4
+                  confirmation:
+                    text: 确定舍弃这条测量记录吗？
+  - type: conditional
+    conditions:
+      - entity: input_text.s7_pending_5
+        state_not: ""
+    card:
+      type: vertical-stack
+      cards:
+        - type: markdown
+          content: |
+            {% set p = states('input_text.s7_pending_5').split(',') %}
+            {% if p | length == 21 and p[0] == 'S7V2' %}
+              {% set w = p[3] | float(0) %}
+              {% set ns = namespace(best='暂无历史匹配', diff=999) %}
+              {% for n in [1, 2, 3] %}
+                {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+                {% if old | length > 3 and old[0] == 'S7V2' %}
+                  {% set d = (w - (old[3] | float(0))) | abs %}
+                  {% if d < ns.diff %}
+                    {% set ns.best = '成员 ' ~ n %}
+                    {% set ns.diff = d %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              **待确认 #{{ p[1] }}**
+              
+              - 体重：**{{ p[3] }} kg**
+              - 阻抗：{{ p[4] }} Ω
+              - 初步建议：**{{ ns.best }}**
+              {% if ns.diff < 999 %}（历史体重差 {{ ns.diff | round(2) }} kg）{% endif %}
+            {% else %}
+              记录格式异常，请检查 ESPHome 日志。
+            {% endif %}
+        - type: horizontal-stack
+          cards:
+            - type: button
+              name: 记录到成员1
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 5
+                  member_id: 1
+            - type: button
+              name: 记录到成员2
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 5
+                  member_id: 2
+            - type: button
+              name: 记录到成员3
+              icon: mdi:account-check
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 5
+                  member_id: 3
+            - type: button
+              name: 舍弃
+              icon: mdi:delete
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_discard_pending
+                data:
+                  pending_slot: 5
+                  confirmation:
+                    text: 确定舍弃这条测量记录吗？
+  - type: markdown
     title: 当前测量进度
     content: |
       {% set s = states('input_select.s7_measurement_status') %}
