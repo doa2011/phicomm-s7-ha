@@ -28,12 +28,13 @@ cards:
             {% if p | length == 21 and p[0] == 'S7V2' %}
               {% set w = p[3] | float(0) %}
               {% set ns = namespace(best='暂无历史匹配', diff=999) %}
-              {% for n in [1, 2, 3] %}
+              {% for n in [1, 2, 3, 4] %}
                 {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
                 {% if old | length > 3 and old[0] == 'S7V2' %}
                   {% set d = (w - (old[3] | float(0))) | abs %}
                   {% if d < ns.diff %}
-                    {% set ns.best = '成员 ' ~ n %}
+                    {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                    {% set ns.best = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
                     {% set ns.diff = d %}
                   {% endif %}
                 {% endif %}
@@ -76,6 +77,15 @@ cards:
                 data:
                   pending_slot: 1
                   member_id: 3
+            - type: button
+              name: 记录为新用户4
+              icon: mdi:account-plus
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 1
+                  member_id: 4
             - type: button
               name: 舍弃
               icon: mdi:delete
@@ -148,6 +158,15 @@ cards:
                   pending_slot: 2
                   member_id: 3
             - type: button
+              name: 记录为新用户4
+              icon: mdi:account-plus
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 2
+                  member_id: 4
+            - type: button
               name: 舍弃
               icon: mdi:delete
               tap_action:
@@ -218,6 +237,15 @@ cards:
                 data:
                   pending_slot: 3
                   member_id: 3
+            - type: button
+              name: 记录为新用户4
+              icon: mdi:account-plus
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 3
+                  member_id: 4
             - type: button
               name: 舍弃
               icon: mdi:delete
@@ -290,6 +318,15 @@ cards:
                   pending_slot: 4
                   member_id: 3
             - type: button
+              name: 记录为新用户4
+              icon: mdi:account-plus
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 4
+                  member_id: 4
+            - type: button
               name: 舍弃
               icon: mdi:delete
               tap_action:
@@ -360,6 +397,15 @@ cards:
                 data:
                   pending_slot: 5
                   member_id: 3
+            - type: button
+              name: 记录为新用户4
+              icon: mdi:account-plus
+              tap_action:
+                action: perform-action
+                perform_action: script.s7_confirm_pending
+                data:
+                  pending_slot: 5
+                  member_id: 4
             - type: button
               name: 舍弃
               icon: mdi:delete
@@ -493,3 +539,30 @@ cards:
       - entity: input_select.s7_measurement_status
       - entity: script.s7_cancel_measurement
         name: 取消等待中的测量
+
+  - type: entities
+    title: 体脂秤 · 新用户档案（成员4）
+    show_header_toggle: false
+    entities:
+      - entity: input_text.s7_member4_name
+        name: 姓名
+      - entity: input_number.s7_member4_age
+        name: 年龄
+      - entity: input_number.s7_member4_height
+        name: 身高
+      - entity: input_select.s7_member4_sex
+        name: 性别
+      - entity: sensor.s7_member_4_weight
+        name: 最近体重
+      - entity: sensor.s7_member_4_bmi
+        name: BMI
+      - entity: sensor.s7_member_4_body_fat
+        name: 体脂率
+      - entity: sensor.s7_member_4_water
+        name: 水分率
+      - entity: sensor.s7_member_4_muscle
+        name: 肌肉率
+      - entity: sensor.s7_member_4_bmr
+        name: 基础代谢
+      - entity: sensor.s7_member_4_bone_mass
+        name: 骨量
