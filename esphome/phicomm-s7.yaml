@@ -400,6 +400,7 @@ interval:
   - interval: 500ms
     then:
       - lambda: |-
+          id(mcu).set_scan_queue_available(id(outbox_1).empty() || id(outbox_2).empty());
           const uint32_t scans = id(mcu).get_scan_count();
           if (scans != id(last_seen_scan_count)) {
             id(last_seen_scan_count) = scans;
