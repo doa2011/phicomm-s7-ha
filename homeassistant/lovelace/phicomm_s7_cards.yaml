@@ -4,69 +4,87 @@
 type: vertical-stack
 cards:
   - type: entities
-    title: S7 · Member 1
+    title: 体脂秤 · 成员 1
     show_header_toggle: false
     entities:
+      - entity: input_number.s7_member1_age
+        name: 年龄
+      - entity: input_number.s7_member1_height
+        name: 身高
+      - entity: input_select.s7_member1_sex
+        name: 性别
       - entity: sensor.s7_member_1_weight
-        name: Weight
+        name: 体重
       - entity: sensor.s7_member_1_bmi
         name: BMI
       - entity: sensor.s7_member_1_body_fat
-        name: Body fat
+        name: 体脂率
       - entity: sensor.s7_member_1_water
-        name: Water
+        name: 水分率
       - entity: sensor.s7_member_1_muscle
-        name: Muscle
+        name: 肌肉率
       - entity: sensor.s7_member_1_bmr
-        name: BMR
+        name: 基础代谢
       - entity: sensor.s7_member_1_bone_mass
-        name: Bone mass
+        name: 骨量
       - entity: script.s7_measure_member1
-        name: Start measurement
+        name: 开始测量
   - type: entities
-    title: S7 · Member 2
+    title: 体脂秤 · 成员 2
     show_header_toggle: false
     entities:
+      - entity: input_number.s7_member2_age
+        name: 年龄
+      - entity: input_number.s7_member2_height
+        name: 身高
+      - entity: input_select.s7_member2_sex
+        name: 性别
       - entity: sensor.s7_member_2_weight
-        name: Weight
+        name: 体重
       - entity: sensor.s7_member_2_bmi
         name: BMI
       - entity: sensor.s7_member_2_body_fat
-        name: Body fat
+        name: 体脂率
       - entity: sensor.s7_member_2_water
-        name: Water
+        name: 水分率
       - entity: sensor.s7_member_2_muscle
-        name: Muscle
+        name: 肌肉率
       - entity: sensor.s7_member_2_bmr
-        name: BMR
+        name: 基础代谢
       - entity: sensor.s7_member_2_bone_mass
-        name: Bone mass
+        name: 骨量
       - entity: script.s7_measure_member2
-        name: Start measurement
+        name: 开始测量
   - type: entities
-    title: S7 · Member 3
+    title: 体脂秤 · 成员 3
     show_header_toggle: false
     entities:
+      - entity: input_number.s7_member3_age
+        name: 年龄
+      - entity: input_number.s7_member3_height
+        name: 身高
+      - entity: input_select.s7_member3_sex
+        name: 性别
       - entity: sensor.s7_member_3_weight
-        name: Weight
+        name: 体重
       - entity: sensor.s7_member_3_bmi
         name: BMI
       - entity: sensor.s7_member_3_body_fat
-        name: Body fat
+        name: 体脂率
       - entity: sensor.s7_member_3_water
-        name: Water
+        name: 水分率
       - entity: sensor.s7_member_3_muscle
-        name: Muscle
+        name: 肌肉率
       - entity: sensor.s7_member_3_bmr
-        name: BMR
+        name: 基础代谢
       - entity: sensor.s7_member_3_bone_mass
-        name: Bone mass
+        name: 骨量
       - entity: script.s7_measure_member3
-        name: Start measurement
+        name: 开始测量
   - type: entities
-    title: S7 · Measurement status
+    title: 体脂秤 · 测量状态
     entities:
       - entity: input_select.s7_measurement_target
       - entity: input_select.s7_measurement_status
       - entity: script.s7_cancel_measurement
-        name: Cancel while waiting
+        name: 取消等待中的测量
