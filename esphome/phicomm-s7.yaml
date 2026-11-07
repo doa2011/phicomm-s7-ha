@@ -3,7 +3,7 @@
 
 esphome:
   name: phicomm-s7
-  friendly_name: "斐讯 S7 体脂秤"
+  friendly_name: "phicomm-s7"
   platformio_options:
     board_build.flash_mode: qio
     board_build.ldscript: eagle.flash.1m64.ld
@@ -53,6 +53,14 @@ api:
             ESP_LOGI("s7_record", "Active member armed: %d; profile age=%.0f height=%.0f sex=%s",
                      member_id, id(measurement_age), id(measurement_height_cm),
                      id(measurement_male) ? "male" : "female");
+    - action: clear_active_member
+      then:
+        - lambda: |-
+            if (!id(mcu).clear_active_member()) {
+              ESP_LOGW("s7_record", "Could not clear member: measurement scan already started");
+            } else {
+              ESP_LOGI("s7_record", "Active member selection cleared");
+            }
     - action: ack_measurement
       variables:
         measurement_id: int
@@ -78,10 +86,7 @@ api:
             }
   on_client_connected:
     - delay: 3s
-    - homeassistant.action:
-        action: script.s7_apply_profile
-        on_error:
-          - logger.log: "HA profile sync failed; retained last active member"
+    # HA replays its persisted member selection when the MCU-online entity turns on.
     - script.execute: send_pending_measurement
 
 ota:
