@@ -5,27 +5,21 @@ input_select:
   s7_measurement_target:
     name: S7 Measurement Target
     options: [Unassigned, Member 1, Member 2, Member 3]
-    initial: Unassigned
   s7_measurement_status:
     name: S7 Measurement Status
     options: [Idle, Preparing, Waiting, Measuring, Saving, Error]
-    initial: Idle
   s7_active_person:
     name: S7 Active Person
     options: [Unassigned, Member 1, Member 2, Member 3]
-    initial: Unassigned
   s7_member1_sex:
     name: S7 Member 1 Sex
     options: [Male, Female]
-    initial: Male
   s7_member2_sex:
     name: S7 Member 2 Sex
     options: [Male, Female]
-    initial: Female
   s7_member3_sex:
     name: S7 Member 3 Sex
     options: [Male, Female]
-    initial: Male
 
 input_number:
   s7_member1_age:
@@ -34,7 +28,6 @@ input_number:
     max: 99
     step: 1
     mode: box
-    initial: 30
   s7_member1_height:
     name: S7 Member 1 Height
     min: 100
@@ -42,14 +35,12 @@ input_number:
     step: 1
     unit_of_measurement: cm
     mode: box
-    initial: 170
   s7_member2_age:
     name: S7 Member 2 Age
     min: 10
     max: 99
     step: 1
     mode: box
-    initial: 30
   s7_member2_height:
     name: S7 Member 2 Height
     min: 100
@@ -57,14 +48,12 @@ input_number:
     step: 1
     unit_of_measurement: cm
     mode: box
-    initial: 165
   s7_member3_age:
     name: S7 Member 3 Age
     min: 10
     max: 99
     step: 1
     mode: box
-    initial: 30
   s7_member3_height:
     name: S7 Member 3 Height
     min: 100
@@ -72,7 +61,6 @@ input_number:
     step: 1
     unit_of_measurement: cm
     mode: box
-    initial: 175
 
 input_text:
   s7_member1_record:
@@ -101,7 +89,11 @@ script:
     mode: restart
     sequence:
       - condition: template
-        value_template: "{{ states('number.phicomm_s7_age') not in ['unknown', 'unavailable'] }}"
+        value_template: >-
+          {{ states('binary_sensor.phicomm_s7_mcu_online') == 'on'
+             and states('number.phicomm_s7_age') not in ['unknown', 'unavailable']
+             and states('number.phicomm_s7_height') not in ['unknown', 'unavailable']
+             and states('select.phicomm_s7_sex') not in ['unknown', 'unavailable'] }}
       - choose:
           - conditions:
               - condition: state
@@ -173,24 +165,7 @@ script:
                 data:
                   member_id: 3
         default:
-          - action: number.set_value
-            target:
-              entity_id: number.phicomm_s7_age
-            data:
-              value: 30
-          - action: number.set_value
-            target:
-              entity_id: number.phicomm_s7_height
-            data:
-              value: 170
-          - action: select.select_option
-            target:
-              entity_id: select.phicomm_s7_sex
-            data:
-              option: "男"
-          - action: esphome.phicomm_s7_set_active_member
-            data:
-              member_id: 0
+          - action: esphome.phicomm_s7_clear_active_member
 
   s7_prepare_measurement:
     alias: S7 Prepare Measurement
@@ -202,8 +177,7 @@ script:
     sequence:
       - condition: template
         value_template: >-
-          {{ states('number.phicomm_s7_age') not in ['unknown', 'unavailable']
-             and states('sensor.phicomm_s7_weight') | float(0) < 3
+          {{ member_name in ['Member 1', 'Member 2', 'Member 3']
              and states('input_select.s7_measurement_status') in ['Idle', 'Error'] }}
       - action: input_select.select_option
         target:
@@ -220,17 +194,37 @@ script:
           entity_id: input_select.s7_active_person
         data:
           option: "{{ member_name }}"
-      - action: script.s7_apply_profile
+      # Persist the target in HA first; the S7 may be asleep and unreachable.
       - action: input_select.select_option
         target:
           entity_id: input_select.s7_measurement_status
         data:
           option: Waiting
-      - action: timer.start
-        target:
-          entity_id: timer.s7_measurement_waiting
-        data:
-          duration: "00:02:00"
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.phicomm_s7_mcu_online
+                state: "on"
+            sequence:
+              - action: timer.start
+                target:
+                  entity_id: timer.s7_measurement_waiting
+                data:
+                  duration: "00:02:00"
+              - action: script.s7_apply_profile
+              - choose:
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ states('sensor.phicomm_s7_weight') | float(0) > 3 }}"
+                    sequence:
+                      - action: timer.cancel
+                        target:
+                          entity_id: timer.s7_measurement_waiting
+                      - action: input_select.select_option
+                        target:
+                          entity_id: input_select.s7_measurement_status
+                        data:
+                          option: Measuring
 
   s7_measure_member1:
     alias: S7 Measure Member 1
@@ -266,6 +260,13 @@ script:
       - action: timer.cancel
         target:
           entity_id: timer.s7_measurement_waiting
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.phicomm_s7_mcu_online
+                state: "on"
+            sequence:
+              - action: esphome.phicomm_s7_clear_active_member
       - action: input_select.select_option
         target:
           entity_id: input_select.s7_measurement_status
@@ -281,7 +282,6 @@ script:
           entity_id: input_select.s7_active_person
         data:
           option: Unassigned
-      - action: script.s7_apply_profile
 
 automation:
   - id: s7_profile_sync
@@ -299,13 +299,56 @@ automation:
           - input_number.s7_member3_age
           - input_number.s7_member3_height
           - input_select.s7_member3_sex
-      - trigger: homeassistant
-        event: start
     conditions:
-      - condition: template
-        value_template: "{{ states('number.phicomm_s7_age') not in ['unknown', 'unavailable'] }}"
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+      - condition: state
+        entity_id: binary_sensor.phicomm_s7_mcu_online
+        state: "on"
     actions:
       - action: script.s7_apply_profile
+
+  # The scale wakes because a person steps on it. Wait for API + sensor states,
+  # then arm the pending member before the MCU is allowed to scan.
+  - id: s7_device_online_sync
+    alias: S7 Sync Pending Member After Wake
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.phicomm_s7_mcu_online
+        to: "on"
+      - trigger: state
+        entity_id: sensor.phicomm_s7_weight
+      - trigger: homeassistant
+        event: start
+    actions:
+      - delay: "00:00:02"
+      - condition: state
+        entity_id: binary_sensor.phicomm_s7_mcu_online
+        state: "on"
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+      - action: timer.start
+        target:
+          entity_id: timer.s7_measurement_waiting
+        data:
+          duration: "00:02:00"
+      - action: script.s7_apply_profile
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('sensor.phicomm_s7_weight') | float(0) > 3 }}"
+            sequence:
+              - action: timer.cancel
+                target:
+                  entity_id: timer.s7_measurement_waiting
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_measurement_status
+                data:
+                  option: Measuring
 
   - id: s7_measurement_prepare_watchdog
     alias: S7 Measurement Preparation Watchdog
@@ -325,11 +368,6 @@ automation:
           entity_id: input_select.s7_measurement_status
         data:
           option: Error
-      - action: input_select.select_option
-        target:
-          entity_id: input_select.s7_measurement_target
-        data:
-          option: Unassigned
 
   - id: s7_measurement_wait_timeout
     alias: S7 Measurement Waiting Timeout
@@ -344,6 +382,13 @@ automation:
         entity_id: input_select.s7_measurement_status
         state: Waiting
     actions:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.phicomm_s7_mcu_online
+                state: "on"
+            sequence:
+              - action: esphome.phicomm_s7_clear_active_member
       - action: input_select.select_option
         target:
           entity_id: input_select.s7_measurement_status
@@ -359,28 +404,6 @@ automation:
           entity_id: input_select.s7_active_person
         data:
           option: Unassigned
-      - action: script.s7_apply_profile
-
-  - id: s7_measurement_started
-    alias: S7 Measurement Started
-    mode: single
-    triggers:
-      - trigger: numeric_state
-        entity_id: sensor.phicomm_s7_weight
-        above: 3
-    conditions:
-      - condition: state
-        entity_id: input_select.s7_measurement_status
-        state: Waiting
-    actions:
-      - action: timer.cancel
-        target:
-          entity_id: timer.s7_measurement_waiting
-      - action: input_select.select_option
-        target:
-          entity_id: input_select.s7_measurement_status
-        data:
-          option: Measuring
 
   # ESPHome sends one complete CSV record. The device keeps it in flash until
   # this automation stores it and calls the matching ACK action.
