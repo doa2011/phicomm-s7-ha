@@ -1,4 +1,4 @@
-# Phicomm S7: three-member profiles + event-driven, acknowledged measurement archive.
+# Phicomm S7: multi-member profiles + pending confirmation queue + acknowledged archive.
 # Include this file with: homeassistant: packages: !include_dir_named packages
 
 input_select:
@@ -10,7 +10,7 @@ input_select:
     options: [Idle, Preparing, Waiting, Measuring, Saving, Error]
   s7_active_person:
     name: S7 Active Person
-    options: [Unassigned, Member 1, Member 2, Member 3]
+    options: [Unassigned, Member 1, Member 2, Member 3, Member 4]
   s7_member1_sex:
     name: S7 Member 1 Sex
     options: [Male, Female]
@@ -341,7 +341,7 @@ script:
         description: Pending queue slot (1-5)
         required: true
       member_id:
-        description: Member number (1-3)
+        description: Member number (1-4)
         required: true
     variables:
       pending_entity: "{{ 'input_text.s7_pending_' ~ (pending_slot | int) }}"
