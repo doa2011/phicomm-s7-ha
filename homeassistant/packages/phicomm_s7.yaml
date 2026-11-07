@@ -594,6 +594,8 @@ automation:
           entity_id: "{{ pending_entity | trim }}"
         data:
           value: "{{ record_csv }}"
+      # Give HA's recorder a moment to persist the helper state before ACK.
+      - delay: "00:00:01"
       # ACK only after the pending record has been written to a persistent HA helper.
       - action: esphome.phicomm_s7_ack_measurement
         data:
