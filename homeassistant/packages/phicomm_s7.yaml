@@ -23,6 +23,19 @@ input_select:
   s7_member4_sex:
     name: S7 Member 4 Sex
     options: [Select, Male, Female]
+  s7_pending_selected:
+    name: S7 Selected Pending Slot
+    options: [None, "1", "2", "3", "4", "5"]
+
+input_boolean:
+  s7_pending_expanded:
+    name: S7 Pending Panel Expanded
+    icon: mdi:clipboard-text-search
+    initial: false
+  s7_member4_created:
+    name: S7 Member 4 Profile Created
+    icon: mdi:account-check
+    initial: false
 
 input_number:
   s7_member1_age:
@@ -402,6 +415,65 @@ script:
           entity_id: "{{ pending_entity }}"
         data:
           value: ""
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ member_id | int == 4 }}"
+            sequence:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.s7_member4_created
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_pending_selected
+        data:
+          option: "None"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.s7_pending_expanded
+
+  # The panel always selects the newest valid pending record by measurement ID.
+  s7_toggle_pending_panel:
+    alias: S7 Toggle Pending Panel
+    mode: restart
+    variables:
+      latest_slot: >-
+        {% set ns = namespace(slot=0, measurement_id=0) %}
+        {% for i in range(1, 6) %}
+          {% set p = states('input_text.s7_pending_' ~ i).split(',') %}
+          {% if p | length == 21 and p[0] == 'S7V2' and (p[1] | int(0)) > ns.measurement_id %}
+            {% set ns.slot = i %}
+            {% set ns.measurement_id = p[1] | int(0) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.slot }}
+    sequence:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_pending_selected
+        data:
+          option: "{{ latest_slot if latest_slot | int(0) > 0 else 'None' }}"
+      - action: input_boolean.toggle
+        target:
+          entity_id: input_boolean.s7_pending_expanded
+
+  # Confirm the record currently selected by the unified Lovelace panel.
+  s7_confirm_selected_pending:
+    alias: S7 Confirm Selected Pending Measurement
+    mode: queued
+    fields:
+      member_id:
+        description: Existing member number (1-4)
+        required: true
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ states('input_select.s7_pending_selected') | int(0) in range(1, 6)
+             and member_id | int in [1, 2, 3, 4] }}
+      - action: script.s7_confirm_pending
+        data:
+          pending_slot: "{{ states('input_select.s7_pending_selected') | int }}"
+          member_id: "{{ member_id | int }}"
 
   s7_discard_pending:
     alias: S7 Discard Pending Measurement
@@ -418,6 +490,14 @@ script:
           entity_id: "{{ 'input_text.s7_pending_' ~ (pending_slot | int) }}"
         data:
           value: ""
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_pending_selected
+        data:
+          option: "None"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.s7_pending_expanded
 
 automation:
   - id: s7_profile_sync
