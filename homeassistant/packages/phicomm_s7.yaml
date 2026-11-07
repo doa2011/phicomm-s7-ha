@@ -77,6 +77,21 @@ input_text:
   s7_unassigned_record:
     name: S7 Unassigned Last Measurement (JSON)
     max: 255
+  s7_pending_1:
+    name: S7 Pending Measurement 1
+    max: 255
+  s7_pending_2:
+    name: S7 Pending Measurement 2
+    max: 255
+  s7_pending_3:
+    name: S7 Pending Measurement 3
+    max: 255
+  s7_pending_4:
+    name: S7 Pending Measurement 4
+    max: 255
+  s7_pending_5:
+    name: S7 Pending Measurement 5
+    max: 255
 
 timer:
   s7_measurement_waiting:
@@ -283,6 +298,93 @@ script:
         data:
           option: Unassigned
 
+  # Confirm a pending measurement only after a human selects its owner.
+  # Recalculate all profile-dependent metrics from raw weight + impedance.
+  s7_confirm_pending:
+    alias: S7 Confirm Pending Measurement
+    mode: queued
+    fields:
+      pending_slot:
+        description: Pending queue slot (1-5)
+        required: true
+      member_id:
+        description: Member number (1-3)
+        required: true
+    variables:
+      pending_entity: "{{ 'input_text.s7_pending_' ~ (pending_slot | int) }}"
+      record_csv: "{{ states(pending_entity) }}"
+      age: "{{ states('input_number.s7_member' ~ (member_id | int) ~ '_age') | float(30) }}"
+      height_cm: "{{ states('input_number.s7_member' ~ (member_id | int) ~ '_height') | float(170) }}"
+      male: "{{ states('input_select.s7_member' ~ (member_id | int) ~ '_sex') == 'Male' }}"
+      normalized_record: >-
+        {% set p = record_csv.split(',') %}
+        {% set w = p[3] | float(0) %}
+        {% set z = p[4] | float(0) %}
+        {% set h = height_cm | float(170) %}
+        {% set a = age | float(30) %}
+        {% set bmi = w / ((h / 100) ** 2) if w > 0 and h > 0 else 0 %}
+        {% set lbm = (h * 9.058 / 100) * (h / 100) + w * 0.32 + 12.226 - z * 0.0068 - a * 0.0542 if w > 0 and z > 0 and h > 0 else 0 %}
+        {% set lbm = [0, [lbm, w * 0.98] | min] | max %}
+        {% if male | bool %}
+          {% set adjust = 0.8 %}
+          {% set coeff = 0.98 if w < 61 else 1.0 %}
+        {% else %}
+          {% set adjust = 9.25 if a <= 49 else 7.25 %}
+          {% set coeff = 1.0 %}
+          {% if w > 60 %}
+            {% set coeff = 0.96 * (1.03 if h > 160 else 1.0) %}
+          {% elif w < 50 %}
+            {% set coeff = 1.02 * (1.03 if h > 160 else 1.0) %}
+          {% endif %}
+        {% endif %}
+        {% set fat = (1 - ((lbm - adjust) * coeff / w)) * 100 if w > 0 else 0 %}
+        {% set fat = [5, [fat, 75] | min] | max %}
+        {% set water = (100 - fat) * 0.7 %}
+        {% set water = water * (1.02 if water <= 50 else 0.98) %}
+        {% set water = [35, [water, 75] | min] | max %}
+        {% set bmr = 370 + 21.6 * lbm %}
+        {% set bone_base = 0.18016894 if male | bool else 0.245691014 %}
+        {% set bone = lbm * 0.05158 - bone_base %}
+        {% set bone = bone + (0.1 if bone > 2.2 else -0.1) %}
+        {% set bone = [0.5, [bone, 8] | min] | max %}
+        {% set muscle_kg = [10, w - fat * 0.01 * w - bone] | max %}
+        {% set muscle = muscle_kg / w * 100 if w > 0 else 0 %}
+        {{ ([p[0], p[1], (member_id | int) | string, p[3], p[4], ('%.1f' | format(bmi)), ('%.1f' | format(fat)), ('%.1f' | format(water)), ('%.2f' | format(lbm)), ('%.0f' | format(bmr)), ('%.1f' | format(muscle)), ('%.2f' | format(bone))] + p[12:]) | join(',') if p | length == 21 else '' }}
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ pending_slot | int in range(1, 6)
+             and member_id | int in [1, 2, 3]
+             and record_csv.split(',') | length == 21
+             and record_csv.split(',')[0] == 'S7V2'
+             and (record_csv.split(',')[2] | int(0)) == 0 }}
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ 'input_text.s7_member' ~ (member_id | int) ~ '_record' }}"
+        data:
+          value: "{{ normalized_record }}"
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ pending_entity }}"
+        data:
+          value: ""
+
+  s7_discard_pending:
+    alias: S7 Discard Pending Measurement
+    mode: queued
+    fields:
+      pending_slot:
+        description: Pending queue slot (1-5)
+        required: true
+    sequence:
+      - condition: template
+        value_template: "{{ pending_slot | int in range(1, 6) }}"
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ 'input_text.s7_pending_' ~ (pending_slot | int) }}"
+        data:
+          value: ""
+
 automation:
   - id: s7_profile_sync
     alias: S7 Sync Selected Profile
@@ -413,92 +515,55 @@ automation:
 
   # ESPHome sends one complete CSV record. The device keeps it in flash until
   # this automation stores it and calls the matching ACK action.
+  # Persist each incoming record in a HA queue before ACKing the ESP8266.
+  # Duplicate retransmissions reuse the existing slot; if the queue is full,
+  # no ACK is sent and the ESP8266 retains its flash copy.
   - id: s7_receive_measurement
-    alias: S7 Receive and Archive Measurement
+    alias: S7 Receive and Queue Measurement
     mode: queued
-    max: 10
+    max: 20
     triggers:
       - trigger: event
         event_type: esphome.s7_measurement
     variables:
       record_csv: "{{ trigger.event.data.record | default('') }}"
-      member_id: "{{ trigger.event.data.record.split(',')[2] | int(0) if trigger.event.data.record.split(',') | length > 2 else 0 }}"
       measurement_id: "{{ trigger.event.data.record.split(',')[1] | int(0) if trigger.event.data.record.split(',') | length > 1 else 0 }}"
+      pending_entity: >-
+        {% set rid = trigger.event.data.record.split(',')[1] | int(0) if trigger.event.data.record.split(',') | length > 1 else 0 %}
+        {% set ns = namespace(entity='') %}
+        {% for i in range(1, 6) %}
+          {% set e = 'input_text.s7_pending_' ~ i %}
+          {% set p = states(e).split(',') %}
+          {% if ns.entity == '' and p | length > 1 and p[0] == 'S7V2' and (p[1] | int(0)) == rid %}
+            {% set ns.entity = e %}
+          {% endif %}
+        {% endfor %}
+        {% if ns.entity == '' %}
+          {% for i in range(1, 6) %}
+            {% set e = 'input_text.s7_pending_' ~ i %}
+            {% if ns.entity == '' and states(e) in ['', 'unknown', 'unavailable'] %}
+              {% set ns.entity = e %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.entity }}
     conditions:
       - condition: template
-        value_template: "{{ trigger.event.data.record.split(',')[0] == 'S7V2' and trigger.event.data.record.split(',') | length == 21 }}"
+        value_template: >-
+          {{ record_csv.split(',')[0] == 'S7V2'
+             and record_csv.split(',') | length == 21
+             and measurement_id > 0
+             and pending_entity | trim != '' }}
     actions:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ states('input_select.s7_measurement_target') == 'Member ' ~ (member_id | string) and states('input_select.s7_measurement_status') in ['Waiting', 'Measuring'] }}"
-            sequence:
-              - action: input_select.select_option
-                target:
-                  entity_id: input_select.s7_measurement_status
-                data:
-                  option: Saving
-              - action: timer.cancel
-                target:
-                  entity_id: timer.s7_measurement_waiting
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ member_id == 1 }}"
-            sequence:
-              - action: input_text.set_value
-                target:
-                  entity_id: input_text.s7_member1_record
-                data:
-                  value: "{{ record_csv }}"
-          - conditions:
-              - condition: template
-                value_template: "{{ member_id == 2 }}"
-            sequence:
-              - action: input_text.set_value
-                target:
-                  entity_id: input_text.s7_member2_record
-                data:
-                  value: "{{ record_csv }}"
-          - conditions:
-              - condition: template
-                value_template: "{{ member_id == 3 }}"
-            sequence:
-              - action: input_text.set_value
-                target:
-                  entity_id: input_text.s7_member3_record
-                data:
-                  value: "{{ record_csv }}"
-        default:
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.s7_unassigned_record
-            data:
-              value: "{{ record_csv }}"
-      # ACK only after the persistent HA helper has accepted the record.
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ pending_entity | trim }}"
+        data:
+          value: "{{ record_csv }}"
+      # ACK only after the pending record has been written to a persistent HA helper.
       - action: esphome.phicomm_s7_ack_measurement
         data:
           measurement_id: "{{ measurement_id }}"
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ states('input_select.s7_measurement_target') == 'Member ' ~ (member_id | string) and states('input_select.s7_measurement_status') == 'Saving' }}"
-            sequence:
-              - action: input_select.select_option
-                target:
-                  entity_id: input_select.s7_measurement_status
-                data:
-                  option: Idle
-              - action: input_select.select_option
-                target:
-                  entity_id: input_select.s7_measurement_target
-                data:
-                  option: Unassigned
-              - action: input_select.select_option
-                target:
-                  entity_id: input_select.s7_active_person
-                data:
-                  option: Unassigned
 
 template:
   - sensor:
