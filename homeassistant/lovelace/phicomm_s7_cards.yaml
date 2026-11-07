@@ -405,7 +405,7 @@ cards:
       - entity: input_boolean.s7_member4_created
         state: "on"
     card:
-    - type: custom:stack-in-card
+      type: custom:stack-in-card
       mode: vertical
       cards:
         - type: custom:mushroom-template-card
