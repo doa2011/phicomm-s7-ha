@@ -475,6 +475,16 @@ script:
           pending_slot: "{{ states('input_select.s7_pending_selected') | int }}"
           member_id: "{{ member_id | int }}"
 
+  s7_discard_selected_pending:
+    alias: S7 Discard Selected Pending Measurement
+    mode: queued
+    sequence:
+      - condition: template
+        value_template: "{{ states('input_select.s7_pending_selected') | int(0) in range(1, 6) }}"
+      - action: script.s7_discard_pending
+        data:
+          pending_slot: "{{ states('input_select.s7_pending_selected') | int }}"
+
   s7_discard_pending:
     alias: S7 Discard Pending Measurement
     mode: queued
