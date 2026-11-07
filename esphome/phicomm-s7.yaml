@@ -3,16 +3,20 @@
 
 esphome:
   name: phicomm-s7
-  friendly_name: "斐讯 S7 体脂秤"
+  friendly_name: "phicomm-s7"
   platformio_options:
     board_build.flash_mode: qio
     board_build.ldscript: eagle.flash.1m64.ld
 
 esp8266:
   board: esp12e
+  restore_from_flash: true
 
 logger:
   baud_rate: 0  # UART0 used by MCU, disable logger serial
+
+preferences:
+  flash_write_interval: 0s
 
 wifi:
   ssid: !secret wifi_ssid
@@ -30,7 +34,60 @@ wifi:
 captive_portal:
 
 api:
+  id: api_server
   # No encryption for first-time setup. Add encryption key later if needed.
+  actions:
+    - action: set_active_member
+      variables:
+        member_id: int
+      then:
+        - lambda: |-
+            if (!id(mcu).set_active_member(member_id)) {
+              ESP_LOGW("s7_record", "Rejected member change to %d: weighing session already active", member_id);
+              return;
+            }
+            id(measurement_age) = id(user_age).state;
+            id(measurement_height_cm) = id(user_height_cm).state;
+            auto sex_idx = id(user_sex).active_index();
+            id(measurement_male) = !sex_idx.has_value() || sex_idx.value() == 0;
+            ESP_LOGI("s7_record", "Active member armed: %d; profile age=%.0f height=%.0f sex=%s",
+                     member_id, id(measurement_age), id(measurement_height_cm),
+                     id(measurement_male) ? "male" : "female");
+    - action: clear_active_member
+      then:
+        - lambda: |-
+            if (!id(mcu).clear_active_member()) {
+              ESP_LOGW("s7_record", "Could not clear member: measurement scan already started");
+            } else {
+              ESP_LOGI("s7_record", "Active member selection cleared");
+            }
+    - action: ack_measurement
+      variables:
+        measurement_id: int
+      then:
+        - lambda: |-
+            bool cleared = false;
+            if (!id(outbox_1).empty() && id(outbox_1_id) == (uint32_t) measurement_id) {
+              id(outbox_1).clear();
+              id(outbox_1_id) = 0;
+              cleared = true;
+            }
+            if (!id(outbox_2).empty() && id(outbox_2_id) == (uint32_t) measurement_id) {
+              id(outbox_2).clear();
+              id(outbox_2_id) = 0;
+              cleared = true;
+            }
+            if (cleared) {
+              ESP_LOGI("s7_record", "HA acknowledged measurement %u",
+                       (unsigned) measurement_id);
+            } else {
+              ESP_LOGW("s7_record", "Ignored stale ACK id=%u",
+                       (unsigned) measurement_id);
+            }
+  on_client_connected:
+    - delay: 3s
+    # HA replays its persisted member selection when the MCU-online entity turns on.
+    - script.execute: send_pending_measurement
 
 ota:
   platform: esphome
@@ -98,30 +155,39 @@ cs1258:
     entity_category: diagnostic
   lr_leg:
     name: "CS1258 LR Leg"
+    id: lr_leg
     entity_category: diagnostic
   rl_leg:
     name: "CS1258 RL Leg"
+    id: rl_leg
     entity_category: diagnostic
   lr_hand:
     name: "CS1258 LR Hand"
+    id: lr_hand
     entity_category: diagnostic
   r_leg:
     name: "CS1258 Right Leg"
+    id: r_leg
     entity_category: diagnostic
   l_leg:
     name: "CS1258 Left Leg"
+    id: l_leg
     entity_category: diagnostic
   lh_ll:
     name: "CS1258 LH-LL"
+    id: lh_ll
     entity_category: diagnostic
   lh_rl:
     name: "CS1258 LH-RL"
+    id: lh_rl
     entity_category: diagnostic
   rh_ll:
     name: "CS1258 RH-LL"
+    id: rh_ll
     entity_category: diagnostic
   rh_rl:
     name: "CS1258 RH-RL"
+    id: rh_rl
     entity_category: diagnostic
   z1:
     name: "CS1258 Z1"
@@ -285,6 +351,46 @@ sensor:
 
 # --- Automatic measurement state sync ---
 globals:
+  # Two compact CSV slots fit in ESP8266 flash preferences (128 bytes each).
+  - id: outbox_1
+    type: std::string
+    restore_value: yes
+    update_interval: 100ms
+    max_restore_data_length: 128
+    initial_value: '""'
+  - id: outbox_1_id
+    type: uint32_t
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: '0'
+  - id: outbox_2
+    type: std::string
+    restore_value: yes
+    update_interval: 100ms
+    max_restore_data_length: 128
+    initial_value: '""'
+  - id: outbox_2_id
+    type: uint32_t
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: '0'
+  - id: measurement_seq
+    type: uint32_t
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: '0'
+  - id: measurement_age
+    type: float
+    restore_value: no
+    initial_value: '30'
+  - id: measurement_height_cm
+    type: float
+    restore_value: no
+    initial_value: '170'
+  - id: measurement_male
+    type: bool
+    restore_value: no
+    initial_value: 'true'
   - id: last_seen_scan_count
     type: uint32_t
     restore_value: no
@@ -294,14 +400,93 @@ interval:
   - interval: 500ms
     then:
       - lambda: |-
+          id(mcu).set_scan_queue_available(id(outbox_1).empty() || id(outbox_2).empty());
           const uint32_t scans = id(mcu).get_scan_count();
           if (scans != id(last_seen_scan_count)) {
             id(last_seen_scan_count) = scans;
-            id(calc_body_comp).execute();
+            id(finalize_measurement).execute();
           }
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            api.connected:
+              state_subscription_only: true
+          then:
+            - script.execute: send_pending_measurement
 
 # --- Scripts ---
 script:
+  - id: send_pending_measurement
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(outbox_1).empty();'
+          then:
+            - homeassistant.event:
+                event: esphome.s7_measurement
+                data_template:
+                  record: "{{ record }}"
+                variables:
+                  record: !lambda 'return id(outbox_1);'
+      - if:
+          condition:
+            lambda: 'return !id(outbox_2).empty();'
+          then:
+            - homeassistant.event:
+                event: esphome.s7_measurement
+                data_template:
+                  record: "{{ record }}"
+                variables:
+                  record: !lambda 'return id(outbox_2);'
+
+  - id: finalize_measurement
+    mode: single
+    then:
+      - script.execute: calc_body_comp
+      - delay: 300ms
+      - lambda: |-
+          if (!id(measurement_valid).state) {
+            ESP_LOGW("s7_record", "Scan invalid; no record queued");
+            return;
+          }
+          std::string *slot = nullptr;
+          uint32_t *slot_id = nullptr;
+          if (id(outbox_1).empty()) {
+            slot = &id(outbox_1);
+            slot_id = &id(outbox_1_id);
+          } else if (id(outbox_2).empty()) {
+            slot = &id(outbox_2);
+            slot_id = &id(outbox_2_id);
+          }
+          else {
+            ESP_LOGE("s7_record", "Both outbox slots await ACK; measurement not queued");
+            return;
+          }
+          ++id(measurement_seq);
+          if (id(measurement_seq) == 0) ++id(measurement_seq);
+          const uint32_t mid = id(measurement_seq);
+          char record[129];
+          const int n = snprintf(
+            record, sizeof(record),
+            "S7V2,%lu,%u,%.2f,%.1f,%.1f,%.1f,%.1f,%.2f,%.0f,%.1f,%.2f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f",
+            (unsigned long) mid, (unsigned) id(mcu).get_session_member(),
+            id(weight_kg).state, id(impedance_ohm).state,
+            id(bmi).state, id(body_fat_pct).state, id(water_pct).state,
+            id(fat_free_mass).state, id(bmr_kcal).state, id(muscle_pct).state,
+            id(bone_mass).state, id(lr_leg).state, id(rl_leg).state,
+            id(lr_hand).state, id(r_leg).state, id(l_leg).state,
+            id(lh_ll).state, id(lh_rl).state, id(rh_ll).state, id(rh_rl).state);
+          if (n <= 0 || n >= (int) sizeof(record)) {
+            ESP_LOGE("s7_record", "Record overflow (%d bytes); not queued", n);
+            return;
+          }
+          *slot_id = mid;
+          *slot = record;
+          ESP_LOGI("s7_record", "Prepared measurement %lu (%d bytes), member=%u",
+                   (unsigned long) mid, n, (unsigned) id(mcu).get_session_member());
+      - delay: 200ms
   # Restartable heater safety timeout, matching the Arduino deadline reset on each ON.
   - id: heater_timeout
     mode: restart
@@ -315,12 +500,10 @@ script:
       - lambda: |-
           float w = id(weight_kg).state;
           float z = id(impedance_ohm).state;
-          float h_cm = id(user_height_cm).state;
+          float h_cm = id(measurement_height_cm);
           float h = h_cm / 100.0f;
-          float age = id(user_age).state;
-          bool male = true;
-          auto idx = id(user_sex).active_index();
-          if (idx.has_value()) male = (idx.value() == 0);  // 0=男, 1=女
+          float age = id(measurement_age);
+          bool male = id(measurement_male);
 
           if (isnan(w) || isnan(h_cm) || isnan(age) || w <= 0 || h <= 0) return;
 

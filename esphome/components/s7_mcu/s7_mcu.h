@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
@@ -15,6 +16,7 @@ static constexpr uint32_t MCU_TIMEOUT_MS = 5000;
 static constexpr float WEIGHT_ON_THRESH = 3.0f;
 static constexpr float WEIGHT_STABLE_DELTA = 0.3f;
 static constexpr uint32_t WEIGHT_STABLE_MS = 3000;
+static constexpr uint32_t MEMBER_ARM_TIMEOUT_MS = 120000;
 static constexpr uint32_t IMPEDANCE_COOL_MS = 20000;
 static const char *const TAG = "s7_mcu";
 
@@ -38,6 +40,9 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     last_published_weight_raw_ = 0xFFFF;
     if (mcu_alive_sensor_ != nullptr) mcu_alive_sensor_->publish_state(false);
     if (measurement_valid_sensor_ != nullptr) measurement_valid_sensor_->publish_state(false);
+    // UART frames must be drained as quickly as possible; use the supported
+    // high-frequency loop requester instead of a zero-ms scheduler interval.
+    high_freq_.start();
   }
 
   void loop() override {
@@ -103,6 +108,30 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   uint16_t get_weight_raw() const { return weight_raw_; }
   bool is_mcu_alive() const { return mcu_alive_; }
   uint32_t get_scan_count() const { return scan_count_; }
+  bool set_active_member(uint8_t member) {
+    const uint8_t next_member = member <= 3 ? member : 0;
+    // The first HA sync may arrive after the user has stepped on and awakened
+    // the scale. Accept that first assignment, but never switch members after
+    // one has been armed for the current on-scale session.
+    if (measurement_done_) return false;
+    if (person_on_scale_ && active_member_synced_ && active_member_ != next_member)
+      return false;
+    active_member_ = next_member;
+    active_member_synced_ = true;
+    active_member_set_ms_ = millis();
+    return true;
+  }
+
+  bool clear_active_member() {
+    // Cancellation is allowed only before the impedance scan has started.
+    if (measurement_done_) return false;
+    active_member_ = 0;
+    active_member_synced_ = false;
+    active_member_set_ms_ = 0;
+    return true;
+  }
+  uint8_t get_session_member() const { return session_member_; }
+  void set_scan_queue_available(bool available) { scan_queue_available_ = available; }
 
   void set_weight_hi(uint8_t v) { weight_hi_ = v; }
   void set_weight_lo(uint8_t v) { weight_lo_ = v; }
@@ -188,11 +217,23 @@ class S7McuComponent : public Component, public uart::UARTDevice {
 
   void update_weight_measurement_() {
     const uint32_t now = millis();
+
+    // Expire an unused member selection even while the scale is empty.
+    // Once a person steps on, person_on_scale_ locks the member until step-off.
+    if (!person_on_scale_ && active_member_synced_ &&
+        (uint32_t)(now - active_member_set_ms_) >= MEMBER_ARM_TIMEOUT_MS) {
+      active_member_ = 0;
+      active_member_synced_ = false;
+      ESP_LOGW(TAG, "Prepared member selection expired; next measurement will be Unassigned unless re-armed");
+    }
+
     if (weight_kg_ < WEIGHT_ON_THRESH) {
       if (person_on_scale_) {
-        ESP_LOGI(TAG, "Weight session ended");
+        ESP_LOGI(TAG, "Weight session ended; member assignment cleared");
         person_on_scale_ = false;
         measurement_done_ = false;
+        active_member_ = 0;
+        active_member_synced_ = false;
         if (measurement_valid_sensor_ != nullptr)
           measurement_valid_sensor_->publish_state(false);
       }
@@ -218,11 +259,14 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     }
     const bool stable = (uint32_t)(now - weight_stable_since_) >= WEIGHT_STABLE_MS;
     const bool cooldown_done = (uint32_t)(now - last_impedance_ms_) > IMPEDANCE_COOL_MS;
-    if (stable && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
+    if (stable && scan_queue_available_ && !measurement_done_ && cooldown_done && cs1258_ != nullptr) {
       ESP_LOGI(TAG, "Weight stable; starting CS1258 scan");
       // A scale session gets exactly one attempt, including failed scans.
       // The next attempt is allowed only after the person steps off.
       measurement_done_ = true;
+      // Identity is resolved in Home Assistant after the measurement.
+      // Never bind a scan to a stale or previously selected member.
+      session_member_ = 0;
       cs1258_->scan();
       last_impedance_ms_ = millis();
       ++scan_count_;
@@ -238,6 +282,8 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       ESP_LOGD(TAG, "CS1258: %s", cs1258_->get_scan_log());
     }
   }
+
+  HighFrequencyLoopRequester high_freq_;
 
   // Frame parser state
   uint8_t buf_[UART_MAX_FRAME];
@@ -269,8 +315,13 @@ class S7McuComponent : public Component, public uart::UARTDevice {
   bool measurement_done_{false};
   float stable_weight_{0.0f};
   uint32_t weight_stable_since_{0};
+  uint32_t active_member_set_ms_{0};
   uint32_t last_impedance_ms_{0};
   uint32_t scan_count_{0};
+  uint8_t active_member_{0};
+  uint8_t session_member_{0};
+  bool active_member_synced_{false};
+  bool scan_queue_available_{true};
   uint16_t last_published_weight_raw_{0xFFFF};
 };
 
