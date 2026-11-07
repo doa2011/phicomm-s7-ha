@@ -42,12 +42,15 @@ api:
         member_id: int
       then:
         - lambda: |-
+            if (!id(mcu).set_active_member(member_id)) {
+              ESP_LOGW("s7_record", "Rejected member change to %d: weighing session already active", member_id);
+              return;
+            }
             id(measurement_age) = id(user_age).state;
             id(measurement_height_cm) = id(user_height_cm).state;
             auto sex_idx = id(user_sex).active_index();
             id(measurement_male) = !sex_idx.has_value() || sex_idx.value() == 0;
-            id(mcu).set_active_member(member_id);
-            ESP_LOGI("s7_record", "Active member set to %d; profile age=%.0f height=%.0f sex=%s",
+            ESP_LOGI("s7_record", "Active member armed: %d; profile age=%.0f height=%.0f sex=%s",
                      member_id, id(measurement_age), id(measurement_height_cm),
                      id(measurement_male) ? "male" : "female");
     - action: ack_measurement
@@ -102,6 +105,7 @@ external_components:
 # --- MCU weight sensor ---
 s7_mcu:
   id: mcu
+  update_interval: 100ms
   cs1258_id: bia
   weight_hi: 0
   weight_lo: 1
