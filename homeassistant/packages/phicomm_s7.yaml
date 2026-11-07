@@ -35,7 +35,6 @@ input_boolean:
   s7_member4_created:
     name: S7 Member 4 Profile Created
     icon: mdi:account-check
-    initial: false
 
 input_number:
   s7_member1_age:
