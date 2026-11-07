@@ -379,7 +379,9 @@ script:
     variables:
       pending_entity: "{{ 'input_text.s7_pending_' ~ (pending_slot | int) }}"
       record_csv: "{{ states(pending_entity) }}"
-      age: "{{ states('input_number.s7_member' ~ (member_id | int) ~ '_age') | float(30) }}"
+      age: >-
+        {% set dob = as_datetime(states('input_datetime.s7_member' ~ (member_id | int) ~ '_birthdate'), none) %}
+        {{ now().year - dob.year - (1 if (now().month, now().day) < (dob.month, dob.day) else 0) if dob else states('input_number.s7_member' ~ (member_id | int) ~ '_age') | float(30) }}
       height_cm: "{{ states('input_number.s7_member' ~ (member_id | int) ~ '_height') | float(170) }}"
       male: "{{ states('input_select.s7_member' ~ (member_id | int) ~ '_sex') == 'Male' }}"
       normalized_record: >-
