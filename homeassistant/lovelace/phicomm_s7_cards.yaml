@@ -92,10 +92,10 @@ cards:
               tap_action:
                 action: perform-action
                 perform_action: script.s7_discard_pending
+                confirmation:
+                  text: 确定舍弃这条测量记录吗？
                 data:
                   pending_slot: 1
-                  confirmation:
-                    text: 确定舍弃这条测量记录吗？
   - type: conditional
     conditions:
       - entity: input_text.s7_pending_2
@@ -109,12 +109,13 @@ cards:
             {% if p | length == 21 and p[0] == 'S7V2' %}
               {% set w = p[3] | float(0) %}
               {% set ns = namespace(best='暂无历史匹配', diff=999) %}
-              {% for n in [1, 2, 3] %}
+              {% for n in [1, 2, 3, 4] %}
                 {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
                 {% if old | length > 3 and old[0] == 'S7V2' %}
                   {% set d = (w - (old[3] | float(0))) | abs %}
                   {% if d < ns.diff %}
-                    {% set ns.best = '成员 ' ~ n %}
+                    {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                    {% set ns.best = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
                     {% set ns.diff = d %}
                   {% endif %}
                 {% endif %}
@@ -172,10 +173,10 @@ cards:
               tap_action:
                 action: perform-action
                 perform_action: script.s7_discard_pending
+                confirmation:
+                  text: 确定舍弃这条测量记录吗？
                 data:
                   pending_slot: 2
-                  confirmation:
-                    text: 确定舍弃这条测量记录吗？
   - type: conditional
     conditions:
       - entity: input_text.s7_pending_3
@@ -189,12 +190,13 @@ cards:
             {% if p | length == 21 and p[0] == 'S7V2' %}
               {% set w = p[3] | float(0) %}
               {% set ns = namespace(best='暂无历史匹配', diff=999) %}
-              {% for n in [1, 2, 3] %}
+              {% for n in [1, 2, 3, 4] %}
                 {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
                 {% if old | length > 3 and old[0] == 'S7V2' %}
                   {% set d = (w - (old[3] | float(0))) | abs %}
                   {% if d < ns.diff %}
-                    {% set ns.best = '成员 ' ~ n %}
+                    {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                    {% set ns.best = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
                     {% set ns.diff = d %}
                   {% endif %}
                 {% endif %}
@@ -252,10 +254,10 @@ cards:
               tap_action:
                 action: perform-action
                 perform_action: script.s7_discard_pending
+                confirmation:
+                  text: 确定舍弃这条测量记录吗？
                 data:
                   pending_slot: 3
-                  confirmation:
-                    text: 确定舍弃这条测量记录吗？
   - type: conditional
     conditions:
       - entity: input_text.s7_pending_4
@@ -269,12 +271,13 @@ cards:
             {% if p | length == 21 and p[0] == 'S7V2' %}
               {% set w = p[3] | float(0) %}
               {% set ns = namespace(best='暂无历史匹配', diff=999) %}
-              {% for n in [1, 2, 3] %}
+              {% for n in [1, 2, 3, 4] %}
                 {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
                 {% if old | length > 3 and old[0] == 'S7V2' %}
                   {% set d = (w - (old[3] | float(0))) | abs %}
                   {% if d < ns.diff %}
-                    {% set ns.best = '成员 ' ~ n %}
+                    {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                    {% set ns.best = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
                     {% set ns.diff = d %}
                   {% endif %}
                 {% endif %}
@@ -332,10 +335,10 @@ cards:
               tap_action:
                 action: perform-action
                 perform_action: script.s7_discard_pending
+                confirmation:
+                  text: 确定舍弃这条测量记录吗？
                 data:
                   pending_slot: 4
-                  confirmation:
-                    text: 确定舍弃这条测量记录吗？
   - type: conditional
     conditions:
       - entity: input_text.s7_pending_5
@@ -349,12 +352,13 @@ cards:
             {% if p | length == 21 and p[0] == 'S7V2' %}
               {% set w = p[3] | float(0) %}
               {% set ns = namespace(best='暂无历史匹配', diff=999) %}
-              {% for n in [1, 2, 3] %}
+              {% for n in [1, 2, 3, 4] %}
                 {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
                 {% if old | length > 3 and old[0] == 'S7V2' %}
                   {% set d = (w - (old[3] | float(0))) | abs %}
                   {% if d < ns.diff %}
-                    {% set ns.best = '成员 ' ~ n %}
+                    {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                    {% set ns.best = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
                     {% set ns.diff = d %}
                   {% endif %}
                 {% endif %}
@@ -412,10 +416,10 @@ cards:
               tap_action:
                 action: perform-action
                 perform_action: script.s7_discard_pending
+                confirmation:
+                  text: 确定舍弃这条测量记录吗？
                 data:
                   pending_slot: 5
-                  confirmation:
-                    text: 确定舍弃这条测量记录吗？
   - type: markdown
     title: 当前测量进度
     content: |
