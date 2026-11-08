@@ -7,6 +7,12 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/cs1258/cs1258.h"
+#ifdef USE_WIFI
+#include "esphome/components/wifi/wifi_component.h"
+#endif
+#ifdef USE_MQTT
+#include "esphome/components/mqtt/mqtt_client.h"
+#endif
 
 namespace esphome {
 namespace s7_mcu {
@@ -157,10 +163,19 @@ class S7McuComponent : public Component, public uart::UARTDevice {
     write_array(d, len);
   }
 
-  // Exact Arduino status frame semantics: f[3]=m.csOk; f[4]/f[5] stay zero.
+  // Match the original S7 status fields:
+  // f[3]=CS1258 scan status, f[4]=Wi-Fi connected, f[5]=MQTT connected.
   void send_status10() {
     uint8_t f[7] = {0xC6, 0x04, 0x10, 0, 0, 0, 0};
     f[3] = (cs1258_ != nullptr && cs1258_->is_ok()) ? 1 : 0;
+#ifdef USE_WIFI
+    f[4] = (wifi::global_wifi_component != nullptr &&
+            wifi::global_wifi_component->is_connected()) ? 1 : 0;
+#endif
+#ifdef USE_MQTT
+    f[5] = (mqtt::global_mqtt_client != nullptr &&
+            mqtt::global_mqtt_client->is_connected()) ? 1 : 0;
+#endif
     f[6] = xor_check(f, 6);
     mcu_send(f, 7);
   }
