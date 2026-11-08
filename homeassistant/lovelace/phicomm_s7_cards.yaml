@@ -138,7 +138,8 @@ cards:
                 - entity: input_select.s7_pending_selected
                   state_not: "Closed"
               card:
-                type: vertical-stack
+                type: custom:stack-in-card
+                mode: vertical
                 cards:
                   - type: markdown
                     content: |
