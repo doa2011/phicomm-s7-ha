@@ -132,19 +132,19 @@ input_text:
     max: 32
   s7_member2_birthdate:
     name: S7 Member 2 Birth Date (YYYY-MM-DD)
-    min: 10
+    min: 0
     max: 10
     mode: text
-    pattern: '^\d{4}-\d{2}-\d{2}$'
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
   s7_member3_name:
     name: S7 Member 3 Name
     max: 32
   s7_member3_birthdate:
     name: S7 Member 3 Birth Date (YYYY-MM-DD)
-    min: 10
+    min: 0
     max: 10
     mode: text
-    pattern: '^\d{4}-\d{2}-\d{2}$'
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
   s7_member1_record:
     name: S7 Member 1 Last Measurement (JSON)
     max: 255
@@ -161,10 +161,10 @@ input_text:
     max: 32
   s7_member4_birthdate:
     name: S7 Member 4 Birth Date (YYYY-MM-DD)
-    min: 10
+    min: 0
     max: 10
     mode: text
-    pattern: '^\d{4}-\d{2}-\d{2}$'
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
   s7_member4_record:
     name: S7 Member 4 Last Measurement (JSON)
     max: 255
