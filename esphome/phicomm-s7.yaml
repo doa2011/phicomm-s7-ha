@@ -352,14 +352,6 @@ button:
         - script.execute: calc_body_comp
 
 # --- Body composition template sensors ---
-binary_sensor:
-  - platform: template
-    name: "MQTT Connected"
-    id: mqtt_connected
-    device_class: connectivity
-    lambda: return id(mqtt_client).is_connected();
-    update_interval: 5s
-
 sensor:
   - platform: wifi_signal
     name: "WiFi RSSI"
