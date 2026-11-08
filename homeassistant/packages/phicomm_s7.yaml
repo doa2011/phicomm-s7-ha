@@ -123,10 +123,10 @@ input_text:
     max: 32
   s7_member1_birthdate:
     name: S7 Member 1 Birth Date (YYYY-MM-DD)
-    min: 10
+    min: 0
     max: 10
     mode: text
-    pattern: '^\d{4}-\d{2}-\d{2}$'
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
   s7_member2_name:
     name: S7 Member 2 Name
     max: 32
@@ -455,7 +455,7 @@ script:
              and record_csv.split(',')[0] == 'S7V2'
              and (record_csv.split(',')[2] | int(0)) == 0
              and age | float(30) >= 0
-             and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and (as_datetime(states('input_text.s7_member4_birthdate'), none) or as_datetime(states('input_datetime.s7_member4_birthdate'), none)) and (as_datetime(states('input_text.s7_member4_birthdate'), none) or as_datetime(states('input_datetime.s7_member4_birthdate'), none)) <= now() and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
+             and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and (as_datetime(states('input_text.s7_member4_birthdate'), none) or as_datetime(states('input_datetime.s7_member4_birthdate'), none)) and as_timestamp((as_datetime(states('input_text.s7_member4_birthdate'), none) or as_datetime(states('input_datetime.s7_member4_birthdate'), none)), 0) <= as_timestamp(now()) and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
       - action: input_text.set_value
         target:
           entity_id: "{{ 'input_text.s7_member' ~ (member_id | int) ~ '_record' }}"
@@ -560,7 +560,7 @@ script:
            else states('input_datetime.s7_member4_birthdate') }}
       birthdate_valid: >-
         {% set b = as_datetime(birthdate, none) %}
-        {{ b is not none and b <= now() }}
+        {{ b is not none and as_timestamp(b, 0) <= as_timestamp(now()) }}
       profile_valid: >-
         {{ states('input_text.s7_member4_name') | trim not in ['', 'unknown', 'unavailable']
            and birthdate_valid | bool
