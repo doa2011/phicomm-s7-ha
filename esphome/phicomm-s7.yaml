@@ -7,6 +7,11 @@ esphome:
   platformio_options:
     board_build.flash_mode: qio
     board_build.ldscript: eagle.flash.1m64.ld
+  on_boot:
+    priority: -100
+    then:
+      - delay: 5s
+      - script.execute: mqtt_apply_config
 
 esp8266:
   board: esp12e
@@ -88,6 +93,17 @@ api:
     - delay: 3s
     # HA replays its persisted member selection when the MCU-online entity turns on.
     - script.execute: send_pending_measurement
+
+# Optional MQTT uplink. The broker is configured from the local web page.
+# Native API remains the primary HA control/measurement channel.
+mqtt:
+  id: mqtt_client
+  broker: ""
+  port: 1883
+  enable_on_boot: false
+  reboot_timeout: 0s
+  discovery: false
+
 
 ota:
   platform: esphome
@@ -276,8 +292,45 @@ select:
       then:
         - script.execute: calc_body_comp
 
+# --- MQTT broker settings (editable from the device web page) ---
+text:
+  - platform: template
+    name: "MQTT Server"
+    id: mqtt_server
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    min_length: 0
+    max_length: 63
+    mode: text
+  - platform: template
+    name: "MQTT Username"
+    id: mqtt_username
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    min_length: 0
+    max_length: 32
+    mode: text
+  - platform: template
+    name: "MQTT Password"
+    id: mqtt_password
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    min_length: 0
+    max_length: 64
+    mode: password
+
 # --- Manual scan button ---
 button:
+  - platform: template
+    name: "Apply MQTT Settings"
+    icon: "mdi:server-network"
+    on_press:
+      then:
+        - script.execute: mqtt_apply_config
+
   - platform: template
     name: "Scan Impedance"
     icon: "mdi:flash-triangle-outline"
@@ -288,6 +341,14 @@ button:
         - script.execute: calc_body_comp
 
 # --- Body composition template sensors ---
+binary_sensor:
+  - platform: template
+    name: "MQTT Connected"
+    id: mqtt_connected
+    device_class: connectivity
+    lambda: return id(mqtt_client).is_connected();
+    update_interval: 5s
+
 sensor:
   - platform: wifi_signal
     name: "WiFi RSSI"
@@ -417,6 +478,27 @@ interval:
 
 # --- Scripts ---
 script:
+  - id: mqtt_apply_config
+    mode: restart
+    then:
+      - mqtt.disable:
+      - delay: 500ms
+      - if:
+          condition:
+            lambda: return !id(mqtt_server).state.empty();
+          then:
+            - lambda: |-
+                id(mqtt_client).set_broker_address(id(mqtt_server).state);
+                id(mqtt_client).set_broker_port(1883);
+                id(mqtt_client).set_username(id(mqtt_username).state);
+                id(mqtt_client).set_password(id(mqtt_password).state);
+                ESP_LOGI("mqtt_cfg", "Applying broker %s:1883", id(mqtt_server).state.c_str());
+            - mqtt.enable:
+          else:
+            - logger.log:
+                level: INFO
+                tag: mqtt_cfg
+                format: "MQTT broker is empty; MQTT remains disabled"
   - id: send_pending_measurement
     mode: single
     then:
