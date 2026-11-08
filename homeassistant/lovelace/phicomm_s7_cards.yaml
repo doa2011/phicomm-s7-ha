@@ -270,7 +270,7 @@ cards:
             - entity: input_text.s7_member1_name
               name: 姓名
             - entity: input_text.s7_member1_birthdate
-            name: 出生日期（YYYY-MM-DD）
+              name: 出生日期（YYYY-MM-DD）
             - entity: input_number.s7_member1_height
               name: 身高（cm）
             - entity: input_select.s7_member1_sex
@@ -318,7 +318,7 @@ cards:
             - entity: input_text.s7_member2_name
               name: 姓名
             - entity: input_text.s7_member2_birthdate
-            name: 出生日期（YYYY-MM-DD）
+              name: 出生日期（YYYY-MM-DD）
             - entity: input_number.s7_member2_height
               name: 身高（cm）
             - entity: input_select.s7_member2_sex
@@ -366,7 +366,7 @@ cards:
             - entity: input_text.s7_member3_name
               name: 姓名
             - entity: input_text.s7_member3_birthdate
-            name: 出生日期（YYYY-MM-DD）
+              name: 出生日期（YYYY-MM-DD）
             - entity: input_number.s7_member3_height
               name: 身高（cm）
             - entity: input_select.s7_member3_sex
@@ -419,7 +419,7 @@ cards:
               - entity: input_text.s7_member4_name
                 name: 姓名
               - entity: input_text.s7_member4_birthdate
-            name: 出生日期（YYYY-MM-DD）
+                name: 出生日期（YYYY-MM-DD）
               - entity: input_number.s7_member4_height
                 name: 身高（cm）
               - entity: input_select.s7_member4_sex
