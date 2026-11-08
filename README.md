@@ -4,6 +4,32 @@
 
 斐讯云服务已关闭，此固件让你的 S7 体脂秤重获新生。
 
+## 本仓库维护说明
+
+本仓库在原有斐讯 S7 开源替代固件的基础上持续维护，并补充了 ESPHome 与 Home Assistant 方案。
+
+### ESPHome / Home Assistant 方案
+
+当前仓库同时提供以下内容：
+
+- `esphome/phicomm-s7.yaml`：ESPHome 设备配置入口，面向 ESP8266（CSM64F02）控制板。
+- `esphome/components/`：S7 MCU 与 CS1258 相关自定义组件。
+- `homeassistant/packages/phicomm_s7.yaml`：Home Assistant 成员资料、测量记录及归档逻辑。
+- `homeassistant/lovelace/phicomm_s7_cards.yaml`：Home Assistant Lovelace 卡片配置。
+
+ESPHome 方案保留 Native API 与 Home Assistant 的集成方式，并围绕测量记录可靠性、成员识别和待确认归档进行扩展。MQTT 相关能力以当前固件配置和代码实际实现为准；尚未完成设备端与业务端联调的功能，不应视为已验证的正式功能。
+
+### 选择哪种方案
+
+- 原有 PlatformIO / Arduino 固件：可参考下文原有安装、配置和硬件说明。
+- ESPHome 方案：使用 `esphome/` 下的配置，并按 `homeassistant/` 下的文件配置 HA。建议先在测试环境验证，再部署到实际秤体。
+
+## 原项目与致谢
+
+本项目的硬件逆向、协议研究及早期替代固件工作承接自原开源项目 [Praepes/phicomm-s7-ha](https://github.com/Praepes/phicomm-s7-ha)。在此特别感谢原作者 **Praepes** 的先行探索、代码贡献与公开分享，为后续 ESPHome 适配和 Home Assistant 扩展提供了重要基础。
+
+同时感谢 [bodymiscale](https://github.com/dckiller51/bodymiscale) 等相关开源项目及社区贡献者提供的算法参考和技术资料。本仓库后续修改由本仓库维护者独立整理与维护；如引用或再分发，请遵循各上游项目的许可证及署名要求。
+
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Platform](https://img.shields.io/badge/platform-ESP8266-orange)
 ![HA](https://img.shields.io/badge/Home%20Assistant-MQTT%20Discovery-41BDF5)

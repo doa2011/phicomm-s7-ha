@@ -5,9 +5,11 @@ on:
     branches:
       - refactor-esphome
       - reliable-measurement-outbox
+      - mqtt-web-config
   pull_request:
     branches:
       - refactor-esphome
+      - reliable-measurement-outbox
   workflow_dispatch:
 
 jobs:

@@ -35,6 +35,10 @@ input_boolean:
     name: S7 Pending Panel Expanded
     icon: mdi:clipboard-text-search
     initial: false
+  s7_member4_creation_open:
+    name: S7 Member 4 Creation Form Open
+    icon: mdi:account-plus
+    initial: false
   s7_member4_created:
     name: S7 Member 4 Profile Created
     icon: mdi:account-check
@@ -117,12 +121,30 @@ input_text:
   s7_member1_name:
     name: S7 Member 1 Name
     max: 32
+  s7_member1_birthdate:
+    name: S7 Member 1 Birth Date (YYYY-MM-DD)
+    min: 0
+    max: 10
+    mode: text
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
   s7_member2_name:
     name: S7 Member 2 Name
     max: 32
+  s7_member2_birthdate:
+    name: S7 Member 2 Birth Date (YYYY-MM-DD)
+    min: 0
+    max: 10
+    mode: text
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
   s7_member3_name:
     name: S7 Member 3 Name
     max: 32
+  s7_member3_birthdate:
+    name: S7 Member 3 Birth Date (YYYY-MM-DD)
+    min: 0
+    max: 10
+    mode: text
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
   s7_member1_record:
     name: S7 Member 1 Last Measurement (JSON)
     max: 255
@@ -137,6 +159,12 @@ input_text:
   s7_member4_name:
     name: S7 Member 4 Name
     max: 32
+  s7_member4_birthdate:
+    name: S7 Member 4 Birth Date (YYYY-MM-DD)
+    min: 0
+    max: 10
+    mode: text
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
   s7_member4_record:
     name: S7 Member 4 Last Measurement (JSON)
     max: 255
@@ -380,7 +408,7 @@ script:
       pending_entity: "{{ 'input_text.s7_pending_' ~ (pending_slot | int) }}"
       record_csv: "{{ states(pending_entity) }}"
       age: >-
-        {% set dob = as_datetime(states('input_datetime.s7_member' ~ (member_id | int) ~ '_birthdate'), none) %}
+        {% set dob = as_datetime(states('input_text.s7_member' ~ (member_id | int) ~ '_birthdate'), none) or as_datetime(states('input_datetime.s7_member' ~ (member_id | int) ~ '_birthdate'), none) %}
         {{ now().year - dob.year - (1 if (now().month, now().day) < (dob.month, dob.day) else 0) if dob else states('input_number.s7_member' ~ (member_id | int) ~ '_age') | float(30) }}
       height_cm: "{{ states('input_number.s7_member' ~ (member_id | int) ~ '_height') | float(170) }}"
       male: "{{ states('input_select.s7_member' ~ (member_id | int) ~ '_sex') == 'Male' }}"
@@ -427,7 +455,7 @@ script:
              and record_csv.split(',')[0] == 'S7V2'
              and (record_csv.split(',')[2] | int(0)) == 0
              and age | float(30) >= 0
-             and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and states('input_datetime.s7_member4_birthdate') not in ['', 'unknown', 'unavailable'] and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
+             and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and (as_datetime(states('input_text.s7_member4_birthdate'), none) or as_datetime(states('input_datetime.s7_member4_birthdate'), none)) and as_timestamp((as_datetime(states('input_text.s7_member4_birthdate'), none) or as_datetime(states('input_datetime.s7_member4_birthdate'), none)), 0) <= as_timestamp(now()) and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
       - action: input_text.set_value
         target:
           entity_id: "{{ 'input_text.s7_member' ~ (member_id | int) ~ '_record' }}"
@@ -446,6 +474,9 @@ script:
               - action: input_boolean.turn_on
                 target:
                   entity_id: input_boolean.s7_member4_created
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.s7_member4_creation_open
       - action: input_select.select_option
         target:
           entity_id: input_select.s7_pending_selected
@@ -519,6 +550,62 @@ script:
             data:
               option: "{{ member_id | int | string }}"
 
+  s7_member4_pending_action:
+    alias: 切换第四位成员资料面板
+    mode: restart
+    sequence:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_boolean.s7_member4_created
+                state: 'on'
+            sequence:
+              - action: script.s7_confirm_selected_pending
+                data:
+                  member_id: 4
+          - conditions:
+              - condition: state
+                entity_id: input_boolean.s7_member4_creation_open
+                state: 'on'
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.s7_member4_creation_open
+        default:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.s7_member4_creation_open
+
+  s7_member4_create_and_archive:
+    alias: 创建第四位成员并归档当前测量
+    mode: restart
+    variables:
+      birthdate: >-
+        {{ states('input_text.s7_member4_birthdate')
+           if states('input_text.s7_member4_birthdate') not in ['', 'unknown', 'unavailable']
+           else states('input_datetime.s7_member4_birthdate') }}
+      birthdate_valid: >-
+        {% set b = as_datetime(birthdate, none) %}
+        {{ b is not none and as_timestamp(b, 0) <= as_timestamp(now()) }}
+      profile_valid: >-
+        {{ states('input_text.s7_member4_name') | trim not in ['', 'unknown', 'unavailable']
+           and birthdate_valid | bool
+           and states('input_number.s7_member4_height') | float(0) >= 100
+           and states('input_select.s7_member4_sex') in ['Male', 'Female'] }}
+    sequence:
+      - if:
+          - condition: template
+            value_template: "{{ profile_valid | bool and states('input_select.s7_pending_selected') | int(0) in range(1, 6) }}"
+        then:
+          - action: script.s7_confirm_selected_pending
+            data:
+              member_id: 4
+        else:
+          - action: persistent_notification.create
+            data:
+              title: 成员资料未完成或测量记录已失效
+              message: 请检查姓名、出生日期（YYYY-MM-DD）、身高、性别，并确认当前仍有待确认测量。
+
   s7_confirm_selected_pending:
     alias: S7 Confirm Selected Pending Measurement
     mode: queued
@@ -571,12 +658,39 @@ script:
           entity_id: input_boolean.s7_pending_expanded
 
 automation:
+  - id: s7_birthdate_text_migration
+    alias: S7 Migrate Existing Birth Dates To Text Fields
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+    actions:
+      - repeat:
+          for_each: [1, 2, 3, 4]
+          sequence:
+            - variables:
+                new_date: "{{ states('input_text.s7_member' ~ repeat.item ~ '_birthdate') }}"
+                old_date: "{{ states('input_datetime.s7_member' ~ repeat.item ~ '_birthdate') }}"
+            - if:
+                - condition: template
+                  value_template: "{{ new_date in ['', 'unknown', 'unavailable'] and old_date not in ['', 'unknown', 'unavailable'] }}"
+              then:
+                - action: input_text.set_value
+                  target:
+                    entity_id: "{{ 'input_text.s7_member' ~ repeat.item ~ '_birthdate' }}"
+                  data:
+                    value: "{{ as_datetime(old_date).strftime('%Y-%m-%d') }}"
+
   - id: s7_birthdate_age_sync
     alias: S7 Calculate Age From Birth Date
     mode: restart
     triggers:
       - trigger: state
         entity_id:
+          - input_text.s7_member1_birthdate
+          - input_text.s7_member2_birthdate
+          - input_text.s7_member3_birthdate
+          - input_text.s7_member4_birthdate
           - input_datetime.s7_member1_birthdate
           - input_datetime.s7_member2_birthdate
           - input_datetime.s7_member3_birthdate
@@ -590,7 +704,10 @@ automation:
           for_each: [1, 2, 3, 4]
           sequence:
             - variables:
-                birthdate: "{{ states('input_datetime.s7_member' ~ repeat.item ~ '_birthdate') }}"
+                birthdate: >-
+                  {{ states('input_text.s7_member' ~ repeat.item ~ '_birthdate')
+                     if states('input_text.s7_member' ~ repeat.item ~ '_birthdate') not in ['', 'unknown', 'unavailable']
+                     else states('input_datetime.s7_member' ~ repeat.item ~ '_birthdate') }}
                 calculated_age: >-
                   {% set b = as_datetime(birthdate, none) %}
                   {{ now().year - b.year - (1 if (now().month, now().day) < (b.month, b.day) else 0) if b else -1 }}
