@@ -595,7 +595,7 @@ script:
                 id(mqtt_client).set_broker_port((uint16_t) id(mqtt_port).state);
                 id(mqtt_client).set_username(id(mqtt_username).state);
                 id(mqtt_client).set_password(id(mqtt_password).state);
-                ESP_LOGI("mqtt_cfg", "Applying broker %s:1883", id(mqtt_server).state.c_str());
+                ESP_LOGI("mqtt_cfg", "Applying broker %s:%u", id(mqtt_server).state.c_str(), (unsigned) id(mqtt_port).state);
             - mqtt.enable:
           else:
             - logger.log:
@@ -734,7 +734,7 @@ script:
           if (!id(mqtt_server).state.empty()) flags |= 2;
           if (slot == &id(outbox_1)) id(outbox_1_flags) = flags;
           else id(outbox_2_flags) = flags;
-          ESP_LOGI(TAG, "Prepared measurement %lu (%d bytes), member=%u",
+          ESP_LOGI("s7_record", "Prepared measurement %lu (%d bytes), member=%u",
                    (unsigned long) mid, n, (unsigned) id(mcu).get_session_member());
       - delay: 200ms
   # Restartable heater safety timeout, matching the Arduino deadline reset on each ON.
