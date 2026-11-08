@@ -279,9 +279,9 @@ class S7McuComponent : public Component, public uart::UARTDevice {
       // A scale session gets exactly one attempt, including failed scans.
       // The next attempt is allowed only after the person steps off.
       measurement_done_ = true;
-      // Identity is resolved in Home Assistant after the measurement.
-      // Never bind a scan to a stale or previously selected member.
-      session_member_ = 0;
+      // Lock the explicitly armed member for this weighing session.
+      // If no member was armed, keep 0 (unassigned) for later confirmation.
+      session_member_ = active_member_synced_ ? active_member_ : 0;
       cs1258_->scan();
       last_impedance_ms_ = millis();
       ++scan_count_;
