@@ -147,39 +147,52 @@ cards:
                       {% set slot = states('input_select.s7_pending_selected') | int(0) %}
                       {% set p = states('input_text.s7_pending_' ~ slot).split(',') if slot in range(1, 6) else [] %}
                       {% if p | length == 21 and p[0] == 'S7V2' %}
-                        {% set w = p[3] | float(0) %}
-                        **待确认 #{{ p[1] }}** · **{{ p[3] }} kg** · 阻抗 {{ p[4] }} Ω · BMI {{ p[5] }}
+                      {% set w = p[3] | float(0) %}
+                      **待确认 #{{ p[1] }}** · **{{ p[3] }} kg** · 阻抗 {{ p[4] }} Ω · BMI {{ p[5] }}
 
-                        **匹配建议**
-                        {% for n in [1, 2, 3, 4] %}
-                          {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
-                          {% if old | length == 21 and old[0] == 'S7V2' and (n != 4 or is_state('input_boolean.s7_member4_created', 'on')) %}
-                            {% set d = (w - (old[3] | float(0))) | abs %}
-                            {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
-                            {% set nm = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
-                            {{ nm }} · {{ d | round(1) }} kg{% if d <= 3 %} · <ha-icon icon="mdi:check-circle" /> 推荐{% endif %}{% if not loop.last %}　{% endif %}
-                          {% endif %}
-                        {% endfor %}
+                      **匹配建议**
+                      {% set ns = namespace(lines=[]) %}
+                      {% for n in [1, 2, 3, 4] %}
+                      {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+                      {% if old | length == 21 and old[0] == 'S7V2' and (n != 4 or is_state('input_boolean.s7_member4_created', 'on')) %}
+                      {% set d = (w - (old[3] | float(0))) | abs %}
+                      {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                      {% set nm = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
+                      {% set ns.lines = ns.lines + [nm ~ ' · ' ~ (d | round(1) | string) ~ ' kg' ~ (' · ✓ 推荐' if d <= 3 else '')] %}
+                      {% endif %}
+                      {% endfor %}
+                      {{ ns.lines | join('　　') }}
                       {% else %}
-                        当前没有有效的待确认记录。
+                      当前没有有效的待确认记录。
                       {% endif %}
                   - type: conditional
                     conditions:
                       - entity: input_boolean.s7_member4_creation_open
                         state: "on"
                     card:
-                      type: entities
-                      title: 新建成员资料
-                      show_header_toggle: false
-                      entities:
-                        - entity: input_text.s7_member4_name
-                          name: 姓名
-                        - entity: input_text.s7_member4_birthdate
-                          name: 出生日期（YYYY-MM-DD，直接输入年份）
-                        - entity: input_number.s7_member4_height
-                          name: 身高（cm）
-                        - entity: input_select.s7_member4_sex
-                          name: 性别
+                      type: vertical-stack
+                      cards:
+                        - type: entities
+                          title: 新建成员资料
+                          show_header_toggle: false
+                          entities:
+                            - entity: input_text.s7_member4_name
+                              name: 姓名
+                            - entity: input_text.s7_member4_birthdate
+                              name: 出生日期（YYYY-MM-DD，直接输入年份）
+                            - entity: input_number.s7_member4_height
+                              name: 身高（cm）
+                            - entity: input_select.s7_member4_sex
+                              name: 性别
+                        - type: custom:mushroom-template-card
+                          primary: 创建成员并归档
+                          secondary: 保存资料并将当前测量记录归入该成员
+                          icon: mdi:account-plus
+                          icon_color: teal
+                          layout: horizontal
+                          tap_action:
+                            action: perform-action
+                            perform_action: script.s7_member4_create_and_archive
                   - type: horizontal-stack
                     cards:
                       - type: custom:mushroom-template-card
