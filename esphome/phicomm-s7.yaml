@@ -3,16 +3,30 @@
 
 esphome:
   name: phicomm-s7
-  friendly_name: "斐讯 S7 体脂秤"
+  friendly_name: "phicomm-s7"
   platformio_options:
     board_build.flash_mode: qio
     board_build.ldscript: eagle.flash.1m64.ld
+  on_boot:
+    priority: -100
+    then:
+      - delay: 5s
+      - lambda: |-
+          // Migrate records created by the previous firmware: legacy records
+          // were delivered through the HA API and therefore require API ACK.
+          if (!id(outbox_1).empty() && id(outbox_1_flags) == 0) id(outbox_1_flags) = 1;
+          if (!id(outbox_2).empty() && id(outbox_2_flags) == 0) id(outbox_2_flags) = 1;
+      - script.execute: mqtt_apply_config
 
 esp8266:
   board: esp12e
+  restore_from_flash: true
 
 logger:
   baud_rate: 0  # UART0 used by MCU, disable logger serial
+
+preferences:
+  flash_write_interval: 0s
 
 wifi:
   ssid: !secret wifi_ssid
@@ -30,7 +44,131 @@ wifi:
 captive_portal:
 
 api:
+  id: api_server
   # No encryption for first-time setup. Add encryption key later if needed.
+  actions:
+    - action: set_active_member
+      variables:
+        member_id: int
+      then:
+        - lambda: |-
+            if (!id(mcu).set_active_member(member_id)) {
+              ESP_LOGW("s7_record", "Rejected member change to %d: weighing session already active", member_id);
+              return;
+            }
+            id(measurement_age) = id(user_age).state;
+            id(measurement_height_cm) = id(user_height_cm).state;
+            auto sex_idx = id(user_sex).active_index();
+            id(measurement_male) = !sex_idx.has_value() || sex_idx.value() == 0;
+            ESP_LOGI("s7_record", "Active member armed: %d; profile age=%.0f height=%.0f sex=%s",
+                     member_id, id(measurement_age), id(measurement_height_cm),
+                     id(measurement_male) ? "male" : "female");
+    - action: clear_active_member
+      then:
+        - lambda: |-
+            if (!id(mcu).clear_active_member()) {
+              ESP_LOGW("s7_record", "Could not clear member: measurement scan already started");
+            } else {
+              ESP_LOGI("s7_record", "Active member selection cleared");
+            }
+    - action: ack_measurement
+      variables:
+        measurement_id: int
+      then:
+        - lambda: |-
+            bool cleared = false;
+            if (!id(outbox_1).empty() && id(outbox_1_id) == (uint32_t) measurement_id) {
+              id(outbox_1_flags) |= 4;  // API_ACKED
+              const uint8_t f = id(outbox_1_flags);
+              if (((f & 1) == 0 || (f & 4)) && ((f & 2) == 0 || (f & 8))) {
+                id(outbox_1).clear(); id(outbox_1_id) = 0; id(outbox_1_flags) = 0;
+              }
+              cleared = true;
+            }
+            if (!id(outbox_2).empty() && id(outbox_2_id) == (uint32_t) measurement_id) {
+              id(outbox_2_flags) |= 4;  // API_ACKED
+              const uint8_t f = id(outbox_2_flags);
+              if (((f & 1) == 0 || (f & 4)) && ((f & 2) == 0 || (f & 8))) {
+                id(outbox_2).clear(); id(outbox_2_id) = 0; id(outbox_2_flags) = 0;
+              }
+              cleared = true;
+            }
+            if (cleared) {
+              ESP_LOGI("s7_record", "HA acknowledged measurement %u",
+                       (unsigned) measurement_id);
+            } else {
+              ESP_LOGW("s7_record", "Ignored stale ACK id=%u",
+                       (unsigned) measurement_id);
+            }
+  on_client_connected:
+    - lambda: |-
+        // A new API client session should receive all still-pending records again.
+        if (!id(outbox_1).empty()) id(outbox_1_flags) &= ~16;
+        if (!id(outbox_2).empty()) id(outbox_2_flags) &= ~16;
+    - delay: 3s
+    # HA replays its persisted member selection when the MCU-online entity turns on.
+    - script.execute: send_pending_measurement
+
+# Optional MQTT uplink. The broker is configured from the local web page.
+# Native API remains the primary HA control/measurement channel.
+mqtt:
+  id: mqtt_client
+  broker: ""
+  port: 1883
+  enable_on_boot: false
+  reboot_timeout: 0s
+  discovery: false
+  on_connect:
+    - lambda: |-
+        char chip[7];
+        snprintf(chip, sizeof(chip), "%06X", ESP.getChipId());
+        std::string name = id(mqtt_device_name).state;
+        if (name.empty()) name = "phicomm-s7";
+        for (auto &c : name) {
+          const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                          (c >= '0' && c <= '9') || c == '-' || c == '_';
+          if (!ok) c = '-';
+        }
+        const std::string root = "phicomm_s7/" + name + "/" + chip;
+        if (!id(mqtt_ack_subscribed)) {
+          const std::string ack_topic = root + "/ack";
+          id(mqtt_client).subscribe(ack_topic, [](const std::string &topic, const std::string &payload) {
+          const char *p = payload.c_str();
+          const char *key = strstr(p, "measurement_id");
+          if (key != nullptr) {
+            p = strchr(key, ':');
+            if (p == nullptr) return;
+            ++p;
+          }
+          char *end = nullptr;
+          const unsigned long ack_id = strtoul(p, &end, 10);
+          if (end == p || ack_id == 0) return;
+          bool matched = false;
+          if (!id(outbox_1).empty() && id(outbox_1_id) == ack_id) {
+            id(outbox_1_flags) |= 8;  // MQTT_ACKED
+            const uint8_t f = id(outbox_1_flags);
+            if (((f & 1) == 0 || (f & 4)) && ((f & 2) == 0 || (f & 8))) {
+              id(outbox_1).clear(); id(outbox_1_id) = 0; id(outbox_1_flags) = 0;
+            }
+            matched = true;
+          }
+          if (!id(outbox_2).empty() && id(outbox_2_id) == ack_id) {
+            id(outbox_2_flags) |= 8;  // MQTT_ACKED
+            const uint8_t f = id(outbox_2_flags);
+            if (((f & 1) == 0 || (f & 4)) && ((f & 2) == 0 || (f & 8))) {
+              id(outbox_2).clear(); id(outbox_2_id) = 0; id(outbox_2_flags) = 0;
+            }
+            matched = true;
+          }
+          if (matched) ESP_LOGI("s7_mqtt", "Application ACK received for measurement %lu", ack_id);
+          else ESP_LOGW("s7_mqtt", "Ignored stale MQTT ACK %lu", ack_id);
+          }, 1);
+          id(mqtt_ack_subscribed) = true;
+        }
+        id(mqtt_client).publish(root + "/availability", "online", 1, true);
+        id(mqtt_client).publish(root + "/status", "{\"state\":\"online\"}", 1, true);
+        ESP_LOGI("s7_mqtt", "Connected; measurement topic: %s/measurement", root.c_str());
+
 
 ota:
   platform: esphome
@@ -98,30 +236,39 @@ cs1258:
     entity_category: diagnostic
   lr_leg:
     name: "CS1258 LR Leg"
+    id: lr_leg
     entity_category: diagnostic
   rl_leg:
     name: "CS1258 RL Leg"
+    id: rl_leg
     entity_category: diagnostic
   lr_hand:
     name: "CS1258 LR Hand"
+    id: lr_hand
     entity_category: diagnostic
   r_leg:
     name: "CS1258 Right Leg"
+    id: r_leg
     entity_category: diagnostic
   l_leg:
     name: "CS1258 Left Leg"
+    id: l_leg
     entity_category: diagnostic
   lh_ll:
     name: "CS1258 LH-LL"
+    id: lh_ll
     entity_category: diagnostic
   lh_rl:
     name: "CS1258 LH-RL"
+    id: lh_rl
     entity_category: diagnostic
   rh_ll:
     name: "CS1258 RH-LL"
+    id: rh_ll
     entity_category: diagnostic
   rh_rl:
     name: "CS1258 RH-RL"
+    id: rh_rl
     entity_category: diagnostic
   z1:
     name: "CS1258 Z1"
@@ -161,6 +308,16 @@ switch:
     restore_mode: ALWAYS_OFF
     on_turn_on:
       - script.execute: heater_timeout
+  - platform: template
+    name: "HA API ACK Required"
+    id: api_ack_required_switch
+    icon: "mdi:check-circle-outline"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action:
+      - lambda: id(api_ack_required) = true;
+    turn_off_action:
+      - lambda: id(api_ack_required) = false;
 
 # --- User profile inputs ---
 number:
@@ -194,6 +351,17 @@ number:
     on_value:
       then:
         - script.execute: calc_body_comp
+  - platform: template
+    name: "MQTT Port"
+    id: mqtt_port
+    icon: "mdi:ethernet"
+    optimistic: true
+    min_value: 1
+    max_value: 65535
+    step: 1
+    initial_value: 1883
+    restore_value: true
+    mode: box
 
 select:
   - platform: template
@@ -210,8 +378,54 @@ select:
       then:
         - script.execute: calc_body_comp
 
+# --- MQTT broker settings (editable from the device web page) ---
+text:
+  - platform: template
+    name: "MQTT Device Name"
+    id: mqtt_device_name
+    optimistic: true
+    restore_value: true
+    initial_value: "phicomm-s7"
+    min_length: 1
+    max_length: 32
+    mode: text
+  - platform: template
+    name: "MQTT Server"
+    id: mqtt_server
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    min_length: 0
+    max_length: 63
+    mode: text
+  - platform: template
+    name: "MQTT Username"
+    id: mqtt_username
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    min_length: 0
+    max_length: 32
+    mode: text
+  - platform: template
+    name: "MQTT Password"
+    id: mqtt_password
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    min_length: 0
+    max_length: 64
+    mode: password
+
 # --- Manual scan button ---
 button:
+  - platform: template
+    name: "Apply MQTT Settings"
+    icon: "mdi:server-network"
+    on_press:
+      then:
+        - script.execute: mqtt_apply_config
+
   - platform: template
     name: "Scan Impedance"
     icon: "mdi:flash-triangle-outline"
@@ -285,6 +499,69 @@ sensor:
 
 # --- Automatic measurement state sync ---
 globals:
+  # Two compact CSV slots fit in ESP8266 flash preferences (128 bytes each).
+  - id: outbox_1
+    type: std::string
+    restore_value: yes
+    update_interval: 100ms
+    max_restore_data_length: 128
+    initial_value: '""'
+  - id: outbox_1_id
+    type: uint32_t
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: '0'
+  - id: outbox_1_flags
+    type: uint8_t
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: '0'
+  - id: outbox_2
+    type: std::string
+    restore_value: yes
+    update_interval: 100ms
+    max_restore_data_length: 128
+    initial_value: '""'
+  - id: outbox_2_id
+    type: uint32_t
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: '0'
+  - id: outbox_2_flags
+    type: uint8_t
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: '0'
+  - id: measurement_seq
+    type: uint32_t
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: '0'
+  - id: mqtt_ack_topic
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: mqtt_ack_subscribed
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: api_ack_required
+    type: bool
+    restore_value: yes
+    update_interval: 100ms
+    initial_value: 'true'
+  - id: measurement_age
+    type: float
+    restore_value: no
+    initial_value: '30'
+  - id: measurement_height_cm
+    type: float
+    restore_value: no
+    initial_value: '170'
+  - id: measurement_male
+    type: bool
+    restore_value: no
+    initial_value: 'true'
   - id: last_seen_scan_count
     type: uint32_t
     restore_value: no
@@ -294,14 +571,214 @@ interval:
   - interval: 500ms
     then:
       - lambda: |-
+          id(mcu).set_scan_queue_available(id(outbox_1).empty() || id(outbox_2).empty());
           const uint32_t scans = id(mcu).get_scan_count();
           if (scans != id(last_seen_scan_count)) {
             id(last_seen_scan_count) = scans;
-            id(calc_body_comp).execute();
+            id(finalize_measurement).execute();
           }
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            api.connected:
+              state_subscription_only: true
+          then:
+            - script.execute: send_pending_measurement
+      - if:
+          condition:
+            lambda: return id(mqtt_client).is_connected();
+          then:
+            - script.execute: publish_mqtt_pending
 
 # --- Scripts ---
 script:
+  - id: mqtt_apply_config
+    mode: restart
+    then:
+      - mqtt.disable:
+      - delay: 500ms
+      - if:
+          condition:
+            lambda: return !id(mqtt_server).state.empty();
+          then:
+            - lambda: |-
+                id(mqtt_client).set_broker_address(id(mqtt_server).state);
+                id(mqtt_client).set_broker_port((uint16_t) id(mqtt_port).state);
+                id(mqtt_client).set_username(id(mqtt_username).state);
+                id(mqtt_client).set_password(id(mqtt_password).state);
+                char chip[7];
+                snprintf(chip, sizeof(chip), "%06X", ESP.getChipId());
+                std::string name = id(mqtt_device_name).state;
+                if (name.empty()) name = "phicomm-s7";
+                for (auto &c : name) {
+                  const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                                  (c >= '0' && c <= '9') || c == '-' || c == '_';
+                  if (!ok) c = '-';
+                }
+                        const std::string root = "phicomm_s7/" + name + "/" + chip;
+                const std::string next_ack_topic = root + "/ack";
+                if (!id(mqtt_ack_topic).empty() && id(mqtt_ack_topic) != next_ack_topic)
+                  id(mqtt_client).unsubscribe(id(mqtt_ack_topic));
+                if (id(mqtt_ack_topic) != next_ack_topic) {
+                  id(mqtt_ack_topic) = next_ack_topic;
+                  id(mqtt_ack_subscribed) = false;
+                }
+                const std::string availability_topic = root + "/availability";
+                mqtt::MQTTMessage will;
+                will.topic = availability_topic;
+                will.payload = "offline";
+                will.qos = 1;
+                will.retain = true;
+                id(mqtt_client).set_last_will(std::move(will));
+                mqtt::MQTTMessage birth;
+                birth.topic = availability_topic;
+                birth.payload = "online";
+                birth.qos = 1;
+                birth.retain = true;
+                id(mqtt_client).set_birth_message(std::move(birth));
+                ESP_LOGI("mqtt_cfg", "Applying broker %s:%u", id(mqtt_server).state.c_str(), (unsigned) id(mqtt_port).state);
+            - mqtt.enable:
+          else:
+            - logger.log:
+                level: INFO
+                tag: mqtt_cfg
+                format: "MQTT broker is empty; MQTT remains disabled"
+  - id: send_pending_measurement
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(outbox_1).empty() && (id(outbox_1_flags) & 16) == 0;'
+          then:
+            - homeassistant.event:
+                event: esphome.s7_measurement
+                data_template:
+                  record: "{{ record }}"
+                variables:
+                  record: !lambda 'return id(outbox_1);'
+            - lambda: id(outbox_1_flags) |= 16;  // API_SENT
+      - if:
+          condition:
+            lambda: 'return !id(outbox_2).empty() && (id(outbox_2_flags) & 16) == 0;'
+          then:
+            - homeassistant.event:
+                event: esphome.s7_measurement
+                data_template:
+                  record: "{{ record }}"
+                variables:
+                  record: !lambda 'return id(outbox_2);'
+            - lambda: id(outbox_2_flags) |= 16;  // API_SENT
+
+  - id: publish_mqtt_pending
+    mode: single
+    then:
+      - lambda: |-
+          char chip[7];
+          snprintf(chip, sizeof(chip), "%06X", ESP.getChipId());
+          std::string name = id(mqtt_device_name).state;
+          if (name.empty()) name = "phicomm-s7";
+          for (auto &c : name) {
+            const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                            (c >= '0' && c <= '9') || c == '-' || c == '_';
+            if (!ok) c = '-';
+          }
+          const std::string topic = "phicomm_s7/" + name + "/" + chip + "/measurement";
+          auto publish_record = [&](const std::string &record, uint32_t mid, uint8_t flags) {
+            if (record.empty() || (flags & 2) == 0 || (flags & 8) != 0) return;
+            char copy[129];
+            if (record.size() >= sizeof(copy)) return;
+            memcpy(copy, record.c_str(), record.size() + 1);
+            char *save = nullptr;
+            char *token = strtok_r(copy, ",", &save);
+            double v[20];
+            for (int i = 0; i < 20; i++) {
+              token = strtok_r(nullptr, ",", &save);
+              if (token == nullptr) {
+                ESP_LOGE("s7_mqtt", "Invalid stored record; expected 20 numeric fields");
+                return;
+              }
+              v[i] = strtod(token, nullptr);
+            }
+            char payload[768];
+            const int n = snprintf(payload, sizeof(payload),
+              "{\"schema\":\"phicomm_s7.measurement\",\"version\":1,"
+              "\"device_id\":\"%s\",\"device_name\":\"%s\",\"measurement_id\":%lu,"
+              "\"member_id\":%.0f,\"weight_kg\":%.2f,\"impedance_ohm\":%.1f,"
+              "\"measured_at\":null,\"device_metrics\":{\"bmi\":%.1f,\"body_fat_pct\":%.1f,\"water_pct\":%.1f,"
+              "\"fat_free_mass_kg\":%.2f,\"bmr_kcal\":%.0f,\"muscle_pct\":%.1f,\"bone_mass_kg\":%.2f},"
+              "\"impedance_channels\":{\"lr_leg\":%.0f,\"rl_leg\":%.0f,\"lr_hand\":%.0f,"
+              "\"r_leg\":%.0f,\"l_leg\":%.0f,\"lh_ll\":%.0f,\"lh_rl\":%.0f,\"rh_ll\":%.0f,\"rh_rl\":%.0f}}",
+              chip, name.c_str(), (unsigned long)mid, v[1], v[2], v[3],
+              v[4], v[5], v[6], v[7], v[8], v[9], v[10],
+              v[11], v[12], v[13], v[14], v[15], v[16], v[17], v[18], v[19]);
+            if (n <= 0 || n >= (int)sizeof(payload)) {
+              ESP_LOGE("s7_mqtt", "MQTT JSON payload overflow");
+              return;
+            }
+            if (id(mqtt_client).publish(topic, payload, 1, false))
+              ESP_LOGD("s7_mqtt", "Queued measurement %lu for MQTT QoS 1", (unsigned long)mid);
+            else
+              ESP_LOGW("s7_mqtt", "MQTT publish failed for measurement %lu; will retry", (unsigned long)mid);
+          };
+          if (id(mqtt_client).is_connected()) {
+            publish_record(id(outbox_1), id(outbox_1_id), id(outbox_1_flags));
+            publish_record(id(outbox_2), id(outbox_2_id), id(outbox_2_flags));
+          }
+
+  - id: finalize_measurement
+    mode: single
+    then:
+      - script.execute: calc_body_comp
+      - delay: 300ms
+      - lambda: |-
+          if (!id(measurement_valid).state) {
+            ESP_LOGW("s7_record", "Scan invalid; no record queued");
+            return;
+          }
+          std::string *slot = nullptr;
+          uint32_t *slot_id = nullptr;
+          if (id(outbox_1).empty()) {
+            slot = &id(outbox_1);
+            slot_id = &id(outbox_1_id);
+          } else if (id(outbox_2).empty()) {
+            slot = &id(outbox_2);
+            slot_id = &id(outbox_2_id);
+          }
+          else {
+            ESP_LOGE("s7_record", "Both outbox slots await ACK; measurement not queued");
+            return;
+          }
+          ++id(measurement_seq);
+          if (id(measurement_seq) == 0) ++id(measurement_seq);
+          const uint32_t mid = id(measurement_seq);
+          char record[129];
+          const int n = snprintf(
+            record, sizeof(record),
+            "S7V2,%lu,%u,%.2f,%.1f,%.1f,%.1f,%.1f,%.2f,%.0f,%.1f,%.2f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f",
+            (unsigned long) mid, (unsigned) id(mcu).get_session_member(),
+            id(weight_kg).state, id(impedance_ohm).state,
+            id(bmi).state, id(body_fat_pct).state, id(water_pct).state,
+            id(fat_free_mass).state, id(bmr_kcal).state, id(muscle_pct).state,
+            id(bone_mass).state, id(lr_leg).state, id(rl_leg).state,
+            id(lr_hand).state, id(r_leg).state, id(l_leg).state,
+            id(lh_ll).state, id(lh_rl).state, id(rh_ll).state, id(rh_rl).state);
+          if (n <= 0 || n >= (int) sizeof(record)) {
+            ESP_LOGE("s7_record", "Record overflow (%d bytes); not queued", n);
+            return;
+          }
+          *slot_id = mid;
+          *slot = record;
+          uint8_t flags = 0;
+          // If MQTT is not configured, keep the legacy HA ACK as the fallback
+          // delivery guarantee even when the HA ACK switch was turned off.
+          if (id(api_ack_required) || id(mqtt_server).state.empty()) flags |= 1;
+          if (!id(mqtt_server).state.empty()) flags |= 2;
+          if (slot == &id(outbox_1)) id(outbox_1_flags) = flags;
+          else id(outbox_2_flags) = flags;
+          ESP_LOGI("s7_record", "Prepared measurement %lu (%d bytes), member=%u",
+                   (unsigned long) mid, n, (unsigned) id(mcu).get_session_member());
+      - delay: 200ms
   # Restartable heater safety timeout, matching the Arduino deadline reset on each ON.
   - id: heater_timeout
     mode: restart
@@ -315,12 +792,10 @@ script:
       - lambda: |-
           float w = id(weight_kg).state;
           float z = id(impedance_ohm).state;
-          float h_cm = id(user_height_cm).state;
+          float h_cm = id(measurement_height_cm);
           float h = h_cm / 100.0f;
-          float age = id(user_age).state;
-          bool male = true;
-          auto idx = id(user_sex).active_index();
-          if (idx.has_value()) male = (idx.value() == 0);  // 0=男, 1=女
+          float age = id(measurement_age);
+          bool male = id(measurement_male);
 
           if (isnan(w) || isnan(h_cm) || isnan(age) || w <= 0 || h <= 0) return;
 
