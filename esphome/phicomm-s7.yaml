@@ -130,8 +130,9 @@ mqtt:
           if (!ok) c = '-';
         }
         const std::string root = "phicomm_s7/" + name + "/" + chip;
-        const std::string ack_topic = root + "/ack";
-        id(mqtt_client).subscribe(ack_topic, [](const std::string &topic, const std::string &payload) {
+        if (!id(mqtt_ack_subscribed)) {
+          const std::string ack_topic = root + "/ack";
+          id(mqtt_client).subscribe(ack_topic, [](const std::string &topic, const std::string &payload) {
           const char *p = payload.c_str();
           const char *key = strstr(p, "measurement_id");
           if (key != nullptr) {
@@ -161,7 +162,9 @@ mqtt:
           }
           if (matched) ESP_LOGI("s7_mqtt", "Application ACK received for measurement %lu", ack_id);
           else ESP_LOGW("s7_mqtt", "Ignored stale MQTT ACK %lu", ack_id);
-        }, 1);
+          }, 1);
+          id(mqtt_ack_subscribed) = true;
+        }
         id(mqtt_client).publish(root + "/availability", "online", 1, true);
         id(mqtt_client).publish(root + "/status", "{\"state\":\"online\"}", 1, true);
         ESP_LOGI("s7_mqtt", "Connected; measurement topic: %s/measurement", root.c_str());
@@ -534,6 +537,14 @@ globals:
     restore_value: yes
     update_interval: 100ms
     initial_value: '0'
+  - id: mqtt_ack_topic
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: mqtt_ack_subscribed
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: api_ack_required
     type: bool
     restore_value: yes
@@ -605,7 +616,15 @@ script:
                                   (c >= '0' && c <= '9') || c == '-' || c == '_';
                   if (!ok) c = '-';
                 }
-                const std::string availability_topic = "phicomm_s7/" + name + "/" + chip + "/availability";
+                        const std::string root = "phicomm_s7/" + name + "/" + chip;
+                const std::string next_ack_topic = root + "/ack";
+                if (!id(mqtt_ack_topic).empty() && id(mqtt_ack_topic) != next_ack_topic)
+                  id(mqtt_client).unsubscribe(id(mqtt_ack_topic));
+                if (id(mqtt_ack_topic) != next_ack_topic) {
+                  id(mqtt_ack_topic) = next_ack_topic;
+                  id(mqtt_ack_subscribed) = false;
+                }
+                const std::string availability_topic = root + "/availability";
                 mqtt::MQTTMessage will;
                 will.topic = availability_topic;
                 will.payload = "offline";
