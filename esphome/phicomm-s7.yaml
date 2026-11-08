@@ -163,6 +163,7 @@ mqtt:
           else ESP_LOGW("s7_mqtt", "Ignored stale MQTT ACK %lu", ack_id);
         }, 1);
         id(mqtt_client).publish(root + "/availability", "online", 1, true);
+        id(mqtt_client).publish(root + "/status", "{\"state\":\"online\"}", 1, true);
         ESP_LOGI("s7_mqtt", "Connected; measurement topic: %s/measurement", root.c_str());
 
 
@@ -663,7 +664,7 @@ script:
               "{\"schema\":\"phicomm_s7.measurement\",\"version\":1,"
               "\"device_id\":\"%s\",\"device_name\":\"%s\",\"measurement_id\":%lu,"
               "\"member_id\":%.0f,\"weight_kg\":%.2f,\"impedance_ohm\":%.1f,"
-              "\"metrics\":{\"bmi\":%.1f,\"body_fat_pct\":%.1f,\"water_pct\":%.1f,"
+              "\"measured_at\":null,\"device_metrics\":{\"bmi\":%.1f,\"body_fat_pct\":%.1f,\"water_pct\":%.1f,"
               "\"fat_free_mass_kg\":%.2f,\"bmr_kcal\":%.0f,\"muscle_pct\":%.1f,\"bone_mass_kg\":%.2f},"
               "\"impedance_channels\":{\"lr_leg\":%.0f,\"rl_leg\":%.0f,\"lr_hand\":%.0f,"
               "\"r_leg\":%.0f,\"l_leg\":%.0f,\"lh_ll\":%.0f,\"lh_rl\":%.0f,\"rh_ll\":%.0f,\"rh_rl\":%.0f}}",
