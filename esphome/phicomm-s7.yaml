@@ -276,6 +276,17 @@ number:
     on_value:
       then:
         - script.execute: calc_body_comp
+  - platform: template
+    name: "MQTT Port"
+    id: mqtt_port
+    icon: "mdi:ethernet"
+    optimistic: true
+    min_value: 1
+    max_value: 65535
+    step: 1
+    initial_value: 1883
+    restore_value: true
+    mode: box
 
 select:
   - platform: template
@@ -489,7 +500,7 @@ script:
           then:
             - lambda: |-
                 id(mqtt_client).set_broker_address(id(mqtt_server).state);
-                id(mqtt_client).set_broker_port(1883);
+                id(mqtt_client).set_broker_port((uint16_t) id(mqtt_port).state);
                 id(mqtt_client).set_username(id(mqtt_username).state);
                 id(mqtt_client).set_password(id(mqtt_password).state);
                 ESP_LOGI("mqtt_cfg", "Applying broker %s:1883", id(mqtt_server).state.c_str());
