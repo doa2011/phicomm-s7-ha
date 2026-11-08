@@ -596,6 +596,28 @@ script:
                 id(mqtt_client).set_broker_port((uint16_t) id(mqtt_port).state);
                 id(mqtt_client).set_username(id(mqtt_username).state);
                 id(mqtt_client).set_password(id(mqtt_password).state);
+                char chip[7];
+                snprintf(chip, sizeof(chip), "%06X", ESP.getChipId());
+                std::string name = id(mqtt_device_name).state;
+                if (name.empty()) name = "phicomm-s7";
+                for (auto &c : name) {
+                  const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                                  (c >= '0' && c <= '9') || c == '-' || c == '_';
+                  if (!ok) c = '-';
+                }
+                const std::string availability_topic = "phicomm_s7/" + name + "/" + chip + "/availability";
+                mqtt::MQTTMessage will;
+                will.topic = availability_topic;
+                will.payload = "offline";
+                will.qos = 1;
+                will.retain = true;
+                id(mqtt_client).set_last_will(std::move(will));
+                mqtt::MQTTMessage birth;
+                birth.topic = availability_topic;
+                birth.payload = "online";
+                birth.qos = 1;
+                birth.retain = true;
+                id(mqtt_client).set_birth_message(std::move(birth));
                 ESP_LOGI("mqtt_cfg", "Applying broker %s:%u", id(mqtt_server).state.c_str(), (unsigned) id(mqtt_port).state);
             - mqtt.enable:
           else:
