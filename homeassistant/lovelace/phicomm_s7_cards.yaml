@@ -161,90 +161,78 @@ cards:
                       {% else %}
                         当前没有有效的待确认记录。
                       {% endif %}
-                  - type: markdown
-                    content: |
-                      **记录到已有用户**
-
-                      请选择实际测量者。系统给出的体重匹配仅供参考，不会自动分配。
+                  - type: conditional
+                    conditions:
+                      - entity: input_boolean.s7_member4_creation_open
+                        state: "on"
+                    card:
+                      type: entities
+                      title: 新建成员资料
+                      show_header_toggle: false
+                      entities:
+                        - entity: input_text.s7_member4_name
+                          name: 姓名
+                        - entity: input_text.s7_member4_birthdate
+                          name: 出生日期（YYYY-MM-DD，直接输入年份）
+                        - entity: input_number.s7_member4_height
+                          name: 身高（cm）
+                        - entity: input_select.s7_member4_sex
+                          name: 性别
                   - type: horizontal-stack
                     cards:
-                      - type: button
-                        name: 成员 1
+                      - type: custom:mushroom-template-card
+                        primary: "{{ states('input_text.s7_member1_name') if states('input_text.s7_member1_name') not in ['', 'unknown', 'unavailable'] else '成员1' }}"
                         icon: mdi:account-check
+                        icon_color: blue
+                        layout: vertical
+                        fill_container: true
                         tap_action:
                           action: perform-action
                           perform_action: script.s7_confirm_selected_pending
                           data:
                             member_id: 1
-                      - type: button
-                        name: 成员 2
+                      - type: custom:mushroom-template-card
+                        primary: "{{ states('input_text.s7_member2_name') if states('input_text.s7_member2_name') not in ['', 'unknown', 'unavailable'] else '成员2' }}"
                         icon: mdi:account-check
+                        icon_color: green
+                        layout: vertical
+                        fill_container: true
                         tap_action:
                           action: perform-action
                           perform_action: script.s7_confirm_selected_pending
                           data:
                             member_id: 2
-                      - type: button
-                        name: 成员 3
+                      - type: custom:mushroom-template-card
+                        primary: "{{ states('input_text.s7_member3_name') if states('input_text.s7_member3_name') not in ['', 'unknown', 'unavailable'] else '成员3' }}"
                         icon: mdi:account-check
+                        icon_color: purple
+                        layout: vertical
+                        fill_container: true
                         tap_action:
                           action: perform-action
                           perform_action: script.s7_confirm_selected_pending
                           data:
                             member_id: 3
-                  - type: conditional
-                    conditions:
-                      - entity: input_boolean.s7_member4_created
-                        state: "on"
-                    card:
-                      type: button
-                      name: 记录到成员 4
-                      icon: mdi:account-check
-                      tap_action:
-                        action: perform-action
-                        perform_action: script.s7_confirm_selected_pending
-                        data:
-                          member_id: 4
-                  - type: conditional
-                    conditions:
-                      - entity: input_boolean.s7_member4_created
-                        state: "off"
-                    card:
-                      type: entities
-                      title: 新建用户
-                      show_header_toggle: false
-                      entities:
-                        - entity: input_text.s7_member4_name
-                          name: 姓名
-                        - entity: input_datetime.s7_member4_birthdate
-                          name: 出生年月日
-                        - entity: input_number.s7_member4_height
-                          name: 身高（cm）
-                        - entity: input_select.s7_member4_sex
-                          name: 性别
-                  - type: conditional
-                    conditions:
-                      - entity: input_boolean.s7_member4_created
-                        state: "off"
-                    card:
-                      type: button
-                      name: 创建用户并归档本次测量
-                      icon: mdi:account-plus
-                      tap_action:
-                        action: perform-action
-                        perform_action: script.s7_confirm_selected_pending
-                        data:
-                          member_id: 4
-                      confirmation:
-                        text: 确认创建该用户，并将当前测量记录归档到此用户吗？
-                  - type: button
-                    name: 舍弃本次测量
-                    icon: mdi:delete
-                    tap_action:
-                      action: perform-action
-                      perform_action: script.s7_discard_selected_pending
-                      confirmation:
-                        text: 确定舍弃这条测量记录吗？
+                      - type: custom:mushroom-template-card
+                        primary: "{{ states('input_text.s7_member4_name') if is_state('input_boolean.s7_member4_created', 'on') and states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] else '创建成员' }}"
+                        icon: mdi:account-plus
+                        icon_color: teal
+                        layout: vertical
+                        fill_container: true
+                        tap_action:
+                          action: perform-action
+                          perform_action: script.s7_member4_pending_action
+                      - type: custom:mushroom-template-card
+                        primary: 舍弃
+                        icon: mdi:delete
+                        icon_color: red
+                        layout: vertical
+                        fill_container: true
+                        tap_action:
+                          action: perform-action
+                          perform_action: script.s7_discard_selected_pending
+                          confirmation:
+                            text: 确定舍弃这条测量记录吗？
             - type: conditional
               conditions:
                 - entity: input_select.s7_pending_selected
