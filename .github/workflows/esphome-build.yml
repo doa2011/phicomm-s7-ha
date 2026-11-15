@@ -1,0 +1,45 @@
+name: ESPHome firmware validation
+
+on:
+  push:
+    branches:
+      - refactor-esphome
+      - reliable-measurement-outbox
+      - mqtt-web-config
+  pull_request:
+    branches:
+      - refactor-esphome
+      - reliable-measurement-outbox
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/esphome/esphome:2026.10.1
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Validate Home Assistant and Lovelace YAML syntax
+        run: |
+          python - <<'PY'
+          import yaml
+          for path in (
+              "homeassistant/packages/phicomm_s7.yaml",
+              "homeassistant/lovelace/phicomm_s7_cards.yaml",
+          ):
+              with open(path, encoding="utf-8") as f:
+                  yaml.safe_load(f)
+              print(f"YAML syntax OK: {path}")
+          PY
+      - name: Create build-only secrets
+        run: |
+          cat > esphome/secrets.yaml <<'EOF'
+          wifi_ssid: "compile-test"
+          wifi_password: "compile-test-password"
+          fallback_ap_password: "compile-test-password"
+          EOF
+      - name: Validate ESPHome configuration
+        run: esphome config esphome/phicomm-s7.yaml
+      - name: Compile ESP8266 firmware
+        run: esphome compile esphome/phicomm-s7.yaml

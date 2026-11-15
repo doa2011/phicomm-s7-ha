@@ -1,0 +1,1431 @@
+# Phicomm S7: multi-member profiles + pending confirmation queue + acknowledged archive.
+# Include this file with: homeassistant: packages: !include_dir_named packages
+
+input_select:
+  s7_measurement_target:
+    name: S7 Measurement Target
+    options: [Unassigned, Member 1, Member 2, Member 3, Member 4]
+  s7_measurement_status:
+    name: S7 Measurement Status
+    options: [Idle, Preparing, Waiting, Measuring, Saving, Error]
+  s7_active_person:
+    name: S7 Active Person
+    options: [Unassigned, Member 1, Member 2, Member 3, Member 4]
+  s7_member1_sex:
+    name: S7 Member 1 Sex
+    options: [Male, Female]
+  s7_member2_sex:
+    name: S7 Member 2 Sex
+    options: [Male, Female]
+  s7_member3_sex:
+    name: S7 Member 3 Sex
+    options: [Male, Female]
+  s7_member4_sex:
+    name: S7 Member 4 Sex
+    options: [Select, Male, Female]
+  s7_pending_selected:
+    name: S7 Selected Pending Slot
+    options: [Closed, "1", "2", "3", "4", "5"]
+  s7_profile_editing:
+    name: S7 Profile Being Edited
+    options: [Closed, "1", "2", "3", "4"]
+
+input_boolean:
+  s7_pending_expanded:
+    name: S7 Pending Panel Expanded
+    icon: mdi:clipboard-text-search
+    initial: false
+  s7_member4_creation_open:
+    name: S7 Member 4 Creation Form Open
+    icon: mdi:account-plus
+    initial: false
+  s7_member4_created:
+    name: S7 Member 4 Profile Created
+    icon: mdi:account-check
+
+input_number:
+  s7_member1_age:
+    name: S7 Member 1 Age
+    min: 0
+    max: 120
+    step: 1
+    mode: box
+  s7_member1_height:
+    name: S7 Member 1 Height
+    min: 100
+    max: 230
+    step: 1
+    unit_of_measurement: cm
+    mode: box
+  s7_member2_age:
+    name: S7 Member 2 Age
+    min: 0
+    max: 120
+    step: 1
+    mode: box
+  s7_member2_height:
+    name: S7 Member 2 Height
+    min: 100
+    max: 230
+    step: 1
+    unit_of_measurement: cm
+    mode: box
+  s7_member3_age:
+    name: S7 Member 3 Age
+    min: 0
+    max: 120
+    step: 1
+    mode: box
+  s7_member3_height:
+    name: S7 Member 3 Height
+    min: 100
+    max: 230
+    step: 1
+    unit_of_measurement: cm
+    mode: box
+  s7_member4_age:
+    name: S7 Member 4 Age
+    min: 0
+    max: 120
+    initial: 0
+    step: 1
+    mode: box
+  s7_member4_height:
+    name: S7 Member 4 Height
+    min: 0
+    max: 230
+    initial: 0
+    step: 1
+    unit_of_measurement: cm
+    mode: box
+
+input_datetime:
+  s7_member1_birthdate:
+    name: S7 Member 1 Birth Date
+    has_date: true
+    has_time: false
+  s7_member2_birthdate:
+    name: S7 Member 2 Birth Date
+    has_date: true
+    has_time: false
+  s7_member3_birthdate:
+    name: S7 Member 3 Birth Date
+    has_date: true
+    has_time: false
+  s7_member4_birthdate:
+    name: S7 Member 4 Birth Date
+    has_date: true
+    has_time: false
+
+input_text:
+  s7_member1_name:
+    name: S7 Member 1 Name
+    max: 32
+  s7_member1_birthdate:
+    name: S7 Member 1 Birth Date (YYYY-MM-DD)
+    min: 0
+    max: 10
+    mode: text
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
+  s7_member2_name:
+    name: S7 Member 2 Name
+    max: 32
+  s7_member2_birthdate:
+    name: S7 Member 2 Birth Date (YYYY-MM-DD)
+    min: 0
+    max: 10
+    mode: text
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
+  s7_member3_name:
+    name: S7 Member 3 Name
+    max: 32
+  s7_member3_birthdate:
+    name: S7 Member 3 Birth Date (YYYY-MM-DD)
+    min: 0
+    max: 10
+    mode: text
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
+  s7_member1_record:
+    name: S7 Member 1 Last Measurement (JSON)
+    max: 255
+  
+  s7_member2_record:
+    name: S7 Member 2 Last Measurement (JSON)
+    max: 255
+  
+  s7_member3_record:
+    name: S7 Member 3 Last Measurement (JSON)
+    max: 255
+  s7_member4_name:
+    name: S7 Member 4 Name
+    max: 32
+  s7_member4_birthdate:
+    name: S7 Member 4 Birth Date (YYYY-MM-DD)
+    min: 0
+    max: 10
+    mode: text
+    pattern: '^$|^\d{4}-\d{2}-\d{2}$'
+  s7_member4_record:
+    name: S7 Member 4 Last Measurement (JSON)
+    max: 255
+  s7_unassigned_record:
+    name: S7 Unassigned Last Measurement (JSON)
+    max: 255
+  s7_pending_1:
+    name: S7 Pending Measurement 1
+    max: 255
+  s7_pending_2:
+    name: S7 Pending Measurement 2
+    max: 255
+  s7_pending_3:
+    name: S7 Pending Measurement 3
+    max: 255
+  s7_pending_4:
+    name: S7 Pending Measurement 4
+    max: 255
+  s7_pending_5:
+    name: S7 Pending Measurement 5
+    max: 255
+
+timer:
+  s7_measurement_waiting:
+    name: S7 Waiting for Person
+    duration: "00:02:00"
+
+script:
+  s7_apply_profile:
+    alias: S7 Apply Selected Profile
+    mode: restart
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ states('binary_sensor.phicomm_s7_mcu_online') == 'on'
+             and states('number.phicomm_s7_age') not in ['unknown', 'unavailable']
+             and states('number.phicomm_s7_height') not in ['unknown', 'unavailable']
+             and states('select.phicomm_s7_sex') not in ['unknown', 'unavailable'] }}
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 1
+            sequence:
+              - action: number.set_value
+                target:
+                  entity_id: number.phicomm_s7_age
+                data:
+                  value: "{{ states('input_number.s7_member1_age') | float(30) }}"
+              - action: number.set_value
+                target:
+                  entity_id: number.phicomm_s7_height
+                data:
+                  value: "{{ states('input_number.s7_member1_height') | float(170) }}"
+              - action: select.select_option
+                target:
+                  entity_id: select.phicomm_s7_sex
+                data:
+                  option: "{{ '男' if states('input_select.s7_member1_sex') == 'Male' else '女' }}"
+              - action: esphome.phicomm_s7_set_active_member
+                data:
+                  member_id: 1
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 2
+            sequence:
+              - action: number.set_value
+                target:
+                  entity_id: number.phicomm_s7_age
+                data:
+                  value: "{{ states('input_number.s7_member2_age') | float(30) }}"
+              - action: number.set_value
+                target:
+                  entity_id: number.phicomm_s7_height
+                data:
+                  value: "{{ states('input_number.s7_member2_height') | float(165) }}"
+              - action: select.select_option
+                target:
+                  entity_id: select.phicomm_s7_sex
+                data:
+                  option: "{{ '男' if states('input_select.s7_member2_sex') == 'Male' else '女' }}"
+              - action: esphome.phicomm_s7_set_active_member
+                data:
+                  member_id: 2
+          - conditions:
+              - condition: state
+                entity_id: input_select.s7_active_person
+                state: Member 3
+            sequence:
+              - action: number.set_value
+                target:
+                  entity_id: number.phicomm_s7_age
+                data:
+                  value: "{{ states('input_number.s7_member3_age') | float(30) }}"
+              - action: number.set_value
+                target:
+                  entity_id: number.phicomm_s7_height
+                data:
+                  value: "{{ states('input_number.s7_member3_height') | float(175) }}"
+              - action: select.select_option
+                target:
+                  entity_id: select.phicomm_s7_sex
+                data:
+                  option: "{{ '男' if states('input_select.s7_member3_sex') == 'Male' else '女' }}"
+              - action: esphome.phicomm_s7_set_active_member
+                data:
+                  member_id: 3
+        default:
+          - action: esphome.phicomm_s7_clear_active_member
+
+  s7_prepare_measurement:
+    alias: S7 Prepare Measurement
+    mode: single
+    fields:
+      member_name:
+        description: Member label
+        required: true
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ member_name in ['Member 1', 'Member 2', 'Member 3']
+             and states('input_select.s7_measurement_status') in ['Idle', 'Error'] }}
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Preparing
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: "{{ member_name }}"
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_active_person
+        data:
+          option: "{{ member_name }}"
+      # Persist the target in HA first; the S7 may be asleep and unreachable.
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Waiting
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.phicomm_s7_mcu_online
+                state: "on"
+            sequence:
+              - action: timer.start
+                target:
+                  entity_id: timer.s7_measurement_waiting
+                data:
+                  duration: "00:02:00"
+              - action: script.s7_apply_profile
+              - choose:
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ states('sensor.phicomm_s7_weight') | float(0) > 3 }}"
+                    sequence:
+                      - action: timer.cancel
+                        target:
+                          entity_id: timer.s7_measurement_waiting
+                      - action: input_select.select_option
+                        target:
+                          entity_id: input_select.s7_measurement_status
+                        data:
+                          option: Measuring
+
+  s7_measure_member1:
+    alias: S7 Measure Member 1
+    mode: single
+    sequence:
+      - action: script.s7_prepare_measurement
+        data:
+          member_name: Member 1
+
+  s7_measure_member2:
+    alias: S7 Measure Member 2
+    mode: single
+    sequence:
+      - action: script.s7_prepare_measurement
+        data:
+          member_name: Member 2
+
+  s7_measure_member3:
+    alias: S7 Measure Member 3
+    mode: single
+    sequence:
+      - action: script.s7_prepare_measurement
+        data:
+          member_name: Member 3
+
+  s7_cancel_measurement:
+    alias: S7 Cancel Waiting Measurement
+    mode: single
+    sequence:
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+      - action: timer.cancel
+        target:
+          entity_id: timer.s7_measurement_waiting
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.phicomm_s7_mcu_online
+                state: "on"
+            sequence:
+              - action: esphome.phicomm_s7_clear_active_member
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Idle
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: Unassigned
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_active_person
+        data:
+          option: Unassigned
+
+  # Confirm a pending measurement only after a human selects its owner.
+  # Recalculate all profile-dependent metrics from raw weight + impedance.
+  s7_confirm_pending:
+    alias: S7 Confirm Pending Measurement
+    mode: queued
+    fields:
+      pending_slot:
+        description: Pending queue slot (1-5)
+        required: true
+      member_id:
+        description: Member number (1-4)
+        required: true
+    variables:
+      pending_entity: "{{ 'input_text.s7_pending_' ~ (pending_slot | int) }}"
+      record_csv: "{{ states(pending_entity) }}"
+      age: >-
+        {% set dob = as_datetime(states('input_text.s7_member' ~ (member_id | int) ~ '_birthdate'), none) or as_datetime(states('input_datetime.s7_member' ~ (member_id | int) ~ '_birthdate'), none) %}
+        {{ now().year - dob.year - (1 if (now().month, now().day) < (dob.month, dob.day) else 0) if dob else states('input_number.s7_member' ~ (member_id | int) ~ '_age') | float(30) }}
+      height_cm: "{{ states('input_number.s7_member' ~ (member_id | int) ~ '_height') | float(170) }}"
+      male: "{{ states('input_select.s7_member' ~ (member_id | int) ~ '_sex') == 'Male' }}"
+      normalized_record: >-
+        {% set p = record_csv.split(',') %}
+        {% set w = p[3] | float(0) if p | length > 3 else 0 %}
+        {% set z = p[4] | float(0) if p | length > 4 else 0 %}
+        {% set h = height_cm | float(170) %}
+        {% set a = age | float(30) %}
+        {% set bmi = w / ((h / 100) ** 2) if w > 0 and h > 0 else 0 %}
+        {% set lbm = (h * 9.058 / 100) * (h / 100) + w * 0.32 + 12.226 - z * 0.0068 - a * 0.0542 if w > 0 and z > 0 and h > 0 else 0 %}
+        {% set lbm = [0, [lbm, w * 0.98] | min] | max %}
+        {% if male | bool %}
+          {% set adjust = 0.8 %}
+          {% set coeff = 0.98 if w < 61 else 1.0 %}
+        {% else %}
+          {% set adjust = 9.25 if a <= 49 else 7.25 %}
+          {% set coeff = 1.0 %}
+          {% if w > 60 %}
+            {% set coeff = 0.96 * (1.03 if h > 160 else 1.0) %}
+          {% elif w < 50 %}
+            {% set coeff = 1.02 * (1.03 if h > 160 else 1.0) %}
+          {% endif %}
+        {% endif %}
+        {% set fat = (1 - ((lbm - adjust) * coeff / w)) * 100 if w > 0 else 0 %}
+        {% set fat = [5, [fat, 75] | min] | max %}
+        {% set water = (100 - fat) * 0.7 %}
+        {% set water = water * (1.02 if water <= 50 else 0.98) %}
+        {% set water = [35, [water, 75] | min] | max %}
+        {% set bmr = 370 + 21.6 * lbm %}
+        {% set bone_base = 0.18016894 if male | bool else 0.245691014 %}
+        {% set bone = lbm * 0.05158 - bone_base %}
+        {% set bone = bone + (0.1 if bone > 2.2 else -0.1) %}
+        {% set bone = [0.5, [bone, 8] | min] | max %}
+        {% set muscle_kg = [10, w - fat * 0.01 * w - bone] | max %}
+        {% set muscle = muscle_kg / w * 100 if w > 0 else 0 %}
+        {{ ([p[0], p[1], (member_id | int) | string, p[3], p[4], ('%.1f' | format(bmi)), ('%.1f' | format(fat)), ('%.1f' | format(water)), ('%.2f' | format(lbm)), ('%.0f' | format(bmr)), ('%.1f' | format(muscle)), ('%.2f' | format(bone))] + p[12:]) | join(',') if p | length == 21 else '' }}
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ pending_slot | int in range(1, 6)
+             and member_id | int in [1, 2, 3, 4]
+             and record_csv.split(',') | length == 21
+             and record_csv.split(',')[0] == 'S7V2'
+             and (record_csv.split(',')[2] | int(0)) == 0
+             and age | float(30) >= 0
+             and (member_id | int != 4 or (states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] and (as_datetime(states('input_text.s7_member4_birthdate'), none) or as_datetime(states('input_datetime.s7_member4_birthdate'), none)) and as_timestamp((as_datetime(states('input_text.s7_member4_birthdate'), none) or as_datetime(states('input_datetime.s7_member4_birthdate'), none)), 0) <= as_timestamp(now()) and states('input_number.s7_member4_height') | float(0) >= 100 and states('input_select.s7_member4_sex') in ['Male', 'Female'])) }}
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ 'input_text.s7_member' ~ (member_id | int) ~ '_record' }}"
+        data:
+          value: "{{ normalized_record | trim }}"
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ pending_entity }}"
+        data:
+          value: ""
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ member_id | int == 4 }}"
+            sequence:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.s7_member4_created
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.s7_member4_creation_open
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_pending_selected
+        data:
+          option: Closed
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.s7_pending_expanded
+
+  # The panel always selects the newest valid pending record by measurement ID.
+  s7_toggle_pending_panel:
+    alias: S7 Toggle Pending Panel
+    mode: restart
+    variables:
+      latest_slot: >-
+        {% set ns = namespace(slot=0, measurement_id=0) %}
+        {% for i in range(1, 6) %}
+          {% set p = states('input_text.s7_pending_' ~ i).split(',') %}
+          {% if p | length == 21 and p[0] == 'S7V2' and (p[1] | int(0)) > ns.measurement_id %}
+            {% set ns.slot = i %}
+            {% set ns.measurement_id = p[1] | int(0) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.slot }}
+    sequence:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ latest_slot | int(0) > 0 }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_pending_selected
+                data:
+                  option: "{{ latest_slot | int | string }}"
+        default:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.s7_pending_selected
+            data:
+              option: Closed
+      - action: input_boolean.toggle
+        target:
+          entity_id: input_boolean.s7_pending_expanded
+
+  # Confirm the record currently selected by the unified Lovelace panel.
+  s7_toggle_member_profile:
+    alias: S7 Toggle Member Profile Editor
+    mode: restart
+    fields:
+      member_id:
+        description: Member number (1-4)
+        required: true
+    sequence:
+      - condition: template
+        value_template: "{{ member_id | int in [1, 2, 3, 4] and (member_id | int != 4 or is_state('input_boolean.s7_member4_created', 'on')) }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('input_select.s7_profile_editing') == (member_id | int | string) }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_profile_editing
+                data:
+                  option: Closed
+        default:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.s7_profile_editing
+            data:
+              option: "{{ member_id | int | string }}"
+
+  s7_member4_pending_action:
+    alias: 切换第四位成员资料面板
+    mode: restart
+    sequence:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_boolean.s7_member4_created
+                state: 'on'
+            sequence:
+              - action: script.s7_confirm_selected_pending
+                data:
+                  member_id: 4
+          - conditions:
+              - condition: state
+                entity_id: input_boolean.s7_member4_creation_open
+                state: 'on'
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.s7_member4_creation_open
+        default:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.s7_member4_creation_open
+
+  s7_member4_create_and_archive:
+    alias: 创建第四位成员并归档当前测量
+    mode: restart
+    variables:
+      birthdate: >-
+        {{ states('input_text.s7_member4_birthdate')
+           if states('input_text.s7_member4_birthdate') not in ['', 'unknown', 'unavailable']
+           else states('input_datetime.s7_member4_birthdate') }}
+      birthdate_valid: >-
+        {% set b = as_datetime(birthdate, none) %}
+        {{ b is not none and as_timestamp(b, 0) <= as_timestamp(now()) }}
+      profile_valid: >-
+        {{ states('input_text.s7_member4_name') | trim not in ['', 'unknown', 'unavailable']
+           and birthdate_valid | bool
+           and states('input_number.s7_member4_height') | float(0) >= 100
+           and states('input_select.s7_member4_sex') in ['Male', 'Female'] }}
+    sequence:
+      - if:
+          - condition: template
+            value_template: "{{ profile_valid | bool and states('input_select.s7_pending_selected') | int(0) in range(1, 6) }}"
+        then:
+          - action: script.s7_confirm_selected_pending
+            data:
+              member_id: 4
+        else:
+          - action: persistent_notification.create
+            data:
+              title: 成员资料未完成或测量记录已失效
+              message: 请检查姓名、出生日期（YYYY-MM-DD）、身高、性别，并确认当前仍有待确认测量。
+
+  s7_confirm_selected_pending:
+    alias: S7 Confirm Selected Pending Measurement
+    mode: queued
+    fields:
+      member_id:
+        description: Existing member number (1-4)
+        required: true
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ states('input_select.s7_pending_selected') | int(0) in range(1, 6)
+             and member_id | int in [1, 2, 3, 4] }}
+      - action: script.s7_confirm_pending
+        data:
+          pending_slot: "{{ states('input_select.s7_pending_selected') | int }}"
+          member_id: "{{ member_id | int }}"
+
+  s7_discard_selected_pending:
+    alias: S7 Discard Selected Pending Measurement
+    mode: queued
+    sequence:
+      - condition: template
+        value_template: "{{ states('input_select.s7_pending_selected') | int(0) in range(1, 6) }}"
+      - action: script.s7_discard_pending
+        data:
+          pending_slot: "{{ states('input_select.s7_pending_selected') | int }}"
+
+  s7_discard_pending:
+    alias: S7 Discard Pending Measurement
+    mode: queued
+    fields:
+      pending_slot:
+        description: Pending queue slot (1-5)
+        required: true
+    sequence:
+      - condition: template
+        value_template: "{{ pending_slot | int in range(1, 6) }}"
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ 'input_text.s7_pending_' ~ (pending_slot | int) }}"
+        data:
+          value: ""
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_pending_selected
+        data:
+          option: Closed
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.s7_pending_expanded
+
+automation:
+  - id: s7_birthdate_text_migration
+    alias: S7 Migrate Existing Birth Dates To Text Fields
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+    actions:
+      - repeat:
+          for_each: [1, 2, 3, 4]
+          sequence:
+            - variables:
+                new_date: "{{ states('input_text.s7_member' ~ repeat.item ~ '_birthdate') }}"
+                old_date: "{{ states('input_datetime.s7_member' ~ repeat.item ~ '_birthdate') }}"
+            - if:
+                - condition: template
+                  value_template: "{{ new_date in ['', 'unknown', 'unavailable'] and old_date not in ['', 'unknown', 'unavailable'] }}"
+              then:
+                - action: input_text.set_value
+                  target:
+                    entity_id: "{{ 'input_text.s7_member' ~ repeat.item ~ '_birthdate' }}"
+                  data:
+                    value: "{{ as_datetime(old_date).strftime('%Y-%m-%d') }}"
+
+  - id: s7_birthdate_age_sync
+    alias: S7 Calculate Age From Birth Date
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_text.s7_member1_birthdate
+          - input_text.s7_member2_birthdate
+          - input_text.s7_member3_birthdate
+          - input_text.s7_member4_birthdate
+          - input_datetime.s7_member1_birthdate
+          - input_datetime.s7_member2_birthdate
+          - input_datetime.s7_member3_birthdate
+          - input_datetime.s7_member4_birthdate
+      - trigger: homeassistant
+        event: start
+      - trigger: time
+        at: "00:05:00"
+    actions:
+      - repeat:
+          for_each: [1, 2, 3, 4]
+          sequence:
+            - variables:
+                birthdate: >-
+                  {{ states('input_text.s7_member' ~ repeat.item ~ '_birthdate')
+                     if states('input_text.s7_member' ~ repeat.item ~ '_birthdate') not in ['', 'unknown', 'unavailable']
+                     else states('input_datetime.s7_member' ~ repeat.item ~ '_birthdate') }}
+                calculated_age: >-
+                  {% set b = as_datetime(birthdate, none) %}
+                  {{ now().year - b.year - (1 if (now().month, now().day) < (b.month, b.day) else 0) if b else -1 }}
+            - if:
+                - condition: template
+                  value_template: "{{ birthdate not in ['', 'unknown', 'unavailable'] and calculated_age | int(-1) >= 0 }}"
+              then:
+                - action: input_number.set_value
+                  target:
+                    entity_id: "{{ 'input_number.s7_member' ~ repeat.item ~ '_age' }}"
+                  data:
+                    value: "{{ calculated_age | int }}"
+
+  - id: s7_profile_sync
+    alias: S7 Sync Selected Profile
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_number.s7_member1_age
+          - input_number.s7_member1_height
+          - input_select.s7_member1_sex
+          - input_number.s7_member2_age
+          - input_number.s7_member2_height
+          - input_select.s7_member2_sex
+          - input_number.s7_member3_age
+          - input_number.s7_member3_height
+          - input_select.s7_member3_sex
+    conditions:
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+      - condition: state
+        entity_id: binary_sensor.phicomm_s7_mcu_online
+        state: "on"
+    actions:
+      - action: script.s7_apply_profile
+
+  # The scale wakes because a person steps on it. Wait for API + sensor states,
+  # then arm the pending member before the MCU is allowed to scan.
+  - id: s7_device_online_sync
+    alias: S7 Sync Pending Member After Wake
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.phicomm_s7_mcu_online
+        to: "on"
+      # Also catch the first ESPHome entity becoming available after API reconnect.
+      - trigger: state
+        entity_id: number.phicomm_s7_age
+      - trigger: template
+        value_template: >-
+          {{ states('input_select.s7_measurement_status') == 'Waiting'
+             and states('binary_sensor.phicomm_s7_mcu_online') == 'on'
+             and states('sensor.phicomm_s7_weight') | float(0) > 3 }}
+      - trigger: homeassistant
+        event: start
+    actions:
+      - delay: "00:00:02"
+      - condition: state
+        entity_id: binary_sensor.phicomm_s7_mcu_online
+        state: "on"
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+      - action: timer.start
+        target:
+          entity_id: timer.s7_measurement_waiting
+        data:
+          duration: "00:02:00"
+      - action: script.s7_apply_profile
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('sensor.phicomm_s7_weight') | float(0) > 3 }}"
+            sequence:
+              - action: timer.cancel
+                target:
+                  entity_id: timer.s7_measurement_waiting
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.s7_measurement_status
+                data:
+                  option: Measuring
+
+  - id: s7_measurement_prepare_watchdog
+    alias: S7 Measurement Preparation Watchdog
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_select.s7_measurement_status
+        to: Preparing
+        for: "00:00:15"
+    conditions:
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Preparing
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Error
+
+  - id: s7_measurement_wait_timeout
+    alias: S7 Measurement Waiting Timeout
+    mode: single
+    triggers:
+      - trigger: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.s7_measurement_waiting
+    conditions:
+      - condition: state
+        entity_id: input_select.s7_measurement_status
+        state: Waiting
+    actions:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.phicomm_s7_mcu_online
+                state: "on"
+            sequence:
+              - action: esphome.phicomm_s7_clear_active_member
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Idle
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: Unassigned
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_active_person
+        data:
+          option: Unassigned
+
+  # ESPHome sends one complete CSV record. The device keeps it in flash until
+  # this automation stores it and calls the matching ACK action.
+  # Persist each incoming record in a HA queue before ACKing the ESP8266.
+  # Duplicate retransmissions reuse the existing slot; if the queue is full,
+  # no ACK is sent and the ESP8266 retains its flash copy.
+  - id: s7_receive_measurement
+    alias: S7 Receive and Queue Measurement
+    mode: queued
+    max: 20
+    triggers:
+      - trigger: event
+        event_type: esphome.s7_measurement
+    variables:
+      record_csv: "{{ trigger.event.data.record | default('') }}"
+      measurement_id: "{{ trigger.event.data.record.split(',')[1] | int(0) if trigger.event.data.record.split(',') | length > 1 else 0 }}"
+      pending_entity: >-
+        {% set rid = trigger.event.data.record.split(',')[1] | int(0) if trigger.event.data.record.split(',') | length > 1 else 0 %}
+        {% set ns = namespace(entity='') %}
+        {% for i in range(1, 6) %}
+          {% set e = 'input_text.s7_pending_' ~ i %}
+          {% set p = states(e).split(',') %}
+          {% if ns.entity == '' and p | length > 1 and p[0] == 'S7V2' and (p[1] | int(0)) == rid %}
+            {% set ns.entity = e %}
+          {% endif %}
+        {% endfor %}
+        {% if ns.entity == '' %}
+          {% for i in range(1, 6) %}
+            {% set e = 'input_text.s7_pending_' ~ i %}
+            {% if ns.entity == '' and states(e) in ['', 'unknown', 'unavailable'] %}
+              {% set ns.entity = e %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.entity }}
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ record_csv.split(',')[0] == 'S7V2'
+             and record_csv.split(',') | length == 21
+             and measurement_id > 0
+             and pending_entity | trim != '' }}
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Saving
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ pending_entity | trim }}"
+        data:
+          value: "{{ record_csv }}"
+      # Give HA's recorder a moment to persist the helper state before ACK.
+      - delay: "00:00:01"
+      # ACK only after the pending record has been written to a persistent HA helper.
+      - action: esphome.phicomm_s7_ack_measurement
+        data:
+          measurement_id: "{{ measurement_id }}"
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_status
+        data:
+          option: Idle
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_measurement_target
+        data:
+          option: Unassigned
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.s7_active_person
+        data:
+          option: Unassigned
+
+template:
+  - sensor:
+      - name: S7 Member 1 Weight
+        unique_id: s7_member1_weight
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[3] | float(0) | round(2) if p | length > 3 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 1 BMI
+        unique_id: s7_member1_bmi
+        unit_of_measurement: "kg/m²"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 1 Body Fat
+        unique_id: s7_member1_body_fat
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 1 Water
+        unique_id: s7_member1_water
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[7] | float(0) | round(1) if p | length > 7 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 1 Fat Free Mass
+        unique_id: s7_member1_fat_free_mass
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[8] | float(0) | round(2) if p | length > 8 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 1 BMR
+        unique_id: s7_member1_bmr
+        unit_of_measurement: "kcal"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[9] | float(0) | round(0) if p | length > 9 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 1 Muscle
+        unique_id: s7_member1_muscle
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[10] | float(0) | round(1) if p | length > 10 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 1 Bone Mass
+        unique_id: s7_member1_bone_mass
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[11] | float(0) | round(2) if p | length > 11 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 1 Impedance
+        unique_id: s7_member1_impedance
+        unit_of_measurement: "ohm"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member1_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member1_record').split(',') %}
+          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member1_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member1_record.last_changed }}"
+
+      - name: S7 Member 2 Weight
+        unique_id: s7_member2_weight
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[3] | float(0) | round(2) if p | length > 3 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 2 BMI
+        unique_id: s7_member2_bmi
+        unit_of_measurement: "kg/m²"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 2 Body Fat
+        unique_id: s7_member2_body_fat
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 2 Water
+        unique_id: s7_member2_water
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[7] | float(0) | round(1) if p | length > 7 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 2 Fat Free Mass
+        unique_id: s7_member2_fat_free_mass
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[8] | float(0) | round(2) if p | length > 8 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 2 BMR
+        unique_id: s7_member2_bmr
+        unit_of_measurement: "kcal"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[9] | float(0) | round(0) if p | length > 9 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 2 Muscle
+        unique_id: s7_member2_muscle
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[10] | float(0) | round(1) if p | length > 10 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 2 Bone Mass
+        unique_id: s7_member2_bone_mass
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[11] | float(0) | round(2) if p | length > 11 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 2 Impedance
+        unique_id: s7_member2_impedance
+        unit_of_measurement: "ohm"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member2_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member2_record').split(',') %}
+          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member2_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member2_record.last_changed }}"
+
+      - name: S7 Member 3 Weight
+        unique_id: s7_member3_weight
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[3] | float(0) | round(2) if p | length > 3 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 BMI
+        unique_id: s7_member3_bmi
+        unit_of_measurement: "kg/m²"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 Body Fat
+        unique_id: s7_member3_body_fat
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 Water
+        unique_id: s7_member3_water
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[7] | float(0) | round(1) if p | length > 7 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 Fat Free Mass
+        unique_id: s7_member3_fat_free_mass
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[8] | float(0) | round(2) if p | length > 8 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 BMR
+        unique_id: s7_member3_bmr
+        unit_of_measurement: "kcal"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[9] | float(0) | round(0) if p | length > 9 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 Muscle
+        unique_id: s7_member3_muscle
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[10] | float(0) | round(1) if p | length > 10 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 Bone Mass
+        unique_id: s7_member3_bone_mass
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[11] | float(0) | round(2) if p | length > 11 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+      - name: S7 Member 3 Impedance
+        unique_id: s7_member3_impedance
+        unit_of_measurement: "ohm"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member3_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member3_record').split(',') %}
+          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member3_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member3_record.last_changed }}"
+
+
+      - name: S7 Member 4 Weight
+        unique_id: s7_member4_weight
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[3] | float(0) | round(2) if p | length > 3 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+
+      - name: S7 Member 4 BMI
+        unique_id: s7_member4_bmi
+        unit_of_measurement: "kg/m²"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[5] | float(0) | round(1) if p | length > 5 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+
+      - name: S7 Member 4 Body Fat
+        unique_id: s7_member4_body_fat
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[6] | float(0) | round(1) if p | length > 6 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+
+      - name: S7 Member 4 Water
+        unique_id: s7_member4_water
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[7] | float(0) | round(1) if p | length > 7 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+
+      - name: S7 Member 4 Fat Free Mass
+        unique_id: s7_member4_fat_free_mass
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[8] | float(0) | round(2) if p | length > 8 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+
+      - name: S7 Member 4 BMR
+        unique_id: s7_member4_bmr
+        unit_of_measurement: "kcal"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[9] | float(0) | round(0) if p | length > 9 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+
+      - name: S7 Member 4 Muscle
+        unique_id: s7_member4_muscle
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[10] | float(0) | round(1) if p | length > 10 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+
+      - name: S7 Member 4 Bone Mass
+        unique_id: s7_member4_bone_mass
+        unit_of_measurement: "kg"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[11] | float(0) | round(2) if p | length > 11 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+
+      - name: S7 Member 4 Impedance
+        unique_id: s7_member4_impedance
+        unit_of_measurement: "ohm"
+        state_class: measurement
+        availability: "{{ states('input_text.s7_member4_record').split(',')[0] == 'S7V2' }}"
+        state: >-
+          {% set p = states('input_text.s7_member4_record').split(',') %}
+          {{ p[4] | float(0) | round(1) if p | length > 4 else 0 }}
+        attributes:
+          measurement_id: >-
+            {% set p = states('input_text.s7_member4_record').split(',') %}
+            {{ p[1] if p | length > 1 else 'unknown' }}
+          measured_at: "{{ states.input_text.s7_member4_record.last_changed }}"
+

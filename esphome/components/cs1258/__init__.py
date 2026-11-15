@@ -21,6 +21,8 @@ CONF_CAL_OFFSET = "cal_offset"
 CONF_IMPEDANCE = "impedance"
 CONF_CS_OK = "cs_ok"
 CONF_BODY_RES = "body_res"
+CHANNEL_KEYS = ("lr_leg", "rl_leg", "lr_hand", "r_leg", "l_leg", "lh_ll", "lh_rl", "rh_ll", "rh_rl")
+EXTRA_KEYS = ("z1", "z2", "z3", "z4", "z5", "short_adc", "cal_a", "cal_b", "scan_ms")
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -44,6 +46,30 @@ CONFIG_SCHEMA = cv.Schema(
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             icon="mdi:resistor",
         ),
+        **{
+            cv.Optional(key): sensor.sensor_schema(
+                unit_of_measurement=UNIT_OHM,
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+                icon="mdi:resistor",
+            )
+            for key in CHANNEL_KEYS
+        },
+        **{
+            cv.Optional(key): sensor.sensor_schema(
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            )
+            for key in EXTRA_KEYS if key != "scan_ms"
+        },
+        cv.Optional("scan_ms"): sensor.sensor_schema(
+            unit_of_measurement="ms",
+            accuracy_decimals=0,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -66,3 +92,8 @@ async def to_code(config):
     if CONF_BODY_RES in config:
         sens = await sensor.new_sensor(config[CONF_BODY_RES])
         cg.add(var.set_body_res_sensor(sens))
+
+    for key in CHANNEL_KEYS + EXTRA_KEYS:
+        if key in config:
+            sens = await sensor.new_sensor(config[key])
+            cg.add(getattr(var, f"set_{key}_sensor")(sens))

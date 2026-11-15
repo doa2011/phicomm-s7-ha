@@ -1,0 +1,458 @@
+# Phicomm S7 unified measurement panel + member cards.
+# Paste this vertical-stack into a dashboard YAML card.
+
+type: vertical-stack
+cards:
+  # One compact entry point: status + newest measurement + pending count.
+  - type: custom:stack-in-card
+    mode: vertical
+    cards:
+      - type: custom:mushroom-template-card
+        primary: 体脂秤 · 测量状态
+        secondary: >-
+          {% set s = states('input_select.s7_measurement_status') %}
+          {% set labels = {
+            'Idle': '空闲，等待开始',
+            'Preparing': '正在准备测量',
+            'Waiting': '等待设备唤醒 / 等待上秤',
+            'Measuring': '正在测量，请保持站立',
+            'Saving': '测量完成，正在保存数据',
+            'Error': '准备失败，请检查设备'
+          } %}
+          {% set online = states('binary_sensor.phicomm_s7_mcu_online') %}
+          {% set pending = namespace(count=0, slot=0, id=0, weight='', best='暂无匹配', diff=999) %}
+          {% for i in range(1, 6) %}
+            {% set p = states('input_text.s7_pending_' ~ i).split(',') %}
+            {% if p | length == 21 and p[0] == 'S7V2' %}
+              {% set pending.count = pending.count + 1 %}
+              {% if p[1] | int(0) > pending.id %}
+                {% set pending.id = p[1] | int(0) %}
+                {% set pending.slot = i %}
+                {% set pending.weight = p[3] %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {% if pending.slot > 0 %}
+            {% for n in [1, 2, 3, 4] %}
+              {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+              {% if old | length == 21 and old[0] == 'S7V2' and (n != 4 or is_state('input_boolean.s7_member4_created', 'on')) %}
+                {% set d = (pending.weight | float(0) - (old[3] | float(0))) | abs %}
+                {% if d < pending.diff %}
+                  {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                  {% set pending.best = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
+                  {% set pending.diff = d %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ labels.get(s, s) }} · 设备：{{ '在线' if online == 'on' else '休眠 / 离线' }} · 最近测量：待确认 {{ pending.weight }} kg{% if pending.diff <= 3 %} · 建议 {{ pending.best }}{% endif %} · 待归档 {{ pending.count }} 条
+          {% else %}
+            {% set last = namespace(ts=0, name='暂无记录', weight='') %}
+            {% for n in [1, 2, 3, 4] %}
+              {% set p = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+              {% if p | length == 21 and p[0] == 'S7V2' %}
+                {% set t = as_timestamp(states['input_text.s7_member' ~ n ~ '_record'].last_changed, 0) %}
+                {% if t > last.ts %}
+                  {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                  {% set last.ts = t %}
+                  {% set last.name = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
+                  {% set last.weight = p[3] %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ labels.get(s, s) }} · 设备：{{ '在线' if online == 'on' else '休眠 / 离线' }} · 最近测量：{{ last.name }}{% if last.weight != '' %} · {{ last.weight }} kg{% endif %}
+          {% endif %}
+        icon: mdi:scale-bathroom
+        icon_color: >-
+          {% set s = states('input_select.s7_measurement_status') %}
+          {{ 'red' if s == 'Error' else 'orange' if s == 'Measuring' else 'green' if s == 'Saving' else 'amber' if s == 'Waiting' else 'blue' }}
+        multiline_secondary: true
+        fill_container: true
+        entity: input_select.s7_measurement_status
+        tap_action:
+          action: perform-action
+          perform_action: script.s7_toggle_pending_panel
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_measurement_status
+            state: Waiting
+        card:
+          type: custom:mushroom-template-card
+          primary: 等待上秤
+          secondary: >-
+            {% if is_state('binary_sensor.phicomm_s7_mcu_online', 'on') %}
+              设备已在线，请站上体脂秤
+            {% else %}
+              S7 处于休眠状态，请站上体脂秤唤醒设备
+            {% endif %}
+          icon: mdi:account-clock
+          icon_color: amber
+          tap_action:
+            action: none
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_measurement_status
+            state: Measuring
+        card:
+          type: custom:mushroom-template-card
+          primary: 正在测量
+          secondary: 请保持站立，不要下秤
+          icon: mdi:scale
+          icon_color: orange
+          tap_action:
+            action: none
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_measurement_status
+            state: Saving
+        card:
+          type: custom:mushroom-template-card
+          primary: 正在保存数据
+          secondary: 请稍候，测量结果正在归档
+          icon: mdi:content-save-check
+          icon_color: green
+          tap_action:
+            action: none
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_measurement_status
+            state: Waiting
+        card:
+          type: custom:mushroom-template-card
+          primary: 取消本次测量
+          icon: mdi:close-circle
+          icon_color: red
+          tap_action:
+            action: call-service
+            service: script.s7_cancel_measurement
+            confirmation:
+              text: 确定取消本次测量吗？
+      - type: conditional
+        conditions:
+          - entity: input_boolean.s7_pending_expanded
+            state: "on"
+        card:
+          type: custom:stack-in-card
+          mode: vertical
+          cards:
+            - type: conditional
+              conditions:
+                - entity: input_select.s7_pending_selected
+                  state_not: "Closed"
+              card:
+                type: custom:stack-in-card
+                mode: vertical
+                cards:
+                  - type: markdown
+                    content: |
+                      {% set slot = states('input_select.s7_pending_selected') | int(0) %}
+                      {% set p = states('input_text.s7_pending_' ~ slot).split(',') if slot in range(1, 6) else [] %}
+                      {% if p | length == 21 and p[0] == 'S7V2' %}
+                      {% set w = p[3] | float(0) %}
+                      **待确认 #{{ p[1] }}** · **{{ p[3] }} kg** · 阻抗 {{ p[4] }} Ω · BMI {{ p[5] }}
+
+                      **匹配建议**
+                      {% set ns = namespace(lines=[]) %}
+                      {% for n in [1, 2, 3, 4] %}
+                      {% set old = states('input_text.s7_member' ~ n ~ '_record').split(',') %}
+                      {% if old | length == 21 and old[0] == 'S7V2' and (n != 4 or is_state('input_boolean.s7_member4_created', 'on')) %}
+                      {% set d = (w - (old[3] | float(0))) | abs %}
+                      {% set nm = states('input_text.s7_member' ~ n ~ '_name') %}
+                      {% set nm = nm if nm not in ['', 'unknown', 'unavailable'] else '成员 ' ~ n %}
+                      {% set ns.lines = ns.lines + [nm ~ ' · ' ~ (d | round(1) | string) ~ ' kg' ~ (' · ✓ 推荐' if d <= 3 else '')] %}
+                      {% endif %}
+                      {% endfor %}
+                      {{ ns.lines | join('　　') }}
+                      {% else %}
+                      当前没有有效的待确认记录。
+                      {% endif %}
+                  - type: conditional
+                    conditions:
+                      - entity: input_boolean.s7_member4_creation_open
+                        state: "on"
+                    card:
+                      type: vertical-stack
+                      cards:
+                        - type: entities
+                          title: 新建成员资料
+                          show_header_toggle: false
+                          entities:
+                            - entity: input_text.s7_member4_name
+                              name: 姓名
+                            - entity: input_text.s7_member4_birthdate
+                              name: 出生日期（YYYY-MM-DD，直接输入年份）
+                            - entity: input_number.s7_member4_height
+                              name: 身高（cm）
+                            - entity: input_select.s7_member4_sex
+                              name: 性别
+                        - type: custom:mushroom-template-card
+                          primary: 创建成员并归档
+                          secondary: 保存资料并将当前测量记录归入该成员
+                          icon: mdi:account-plus
+                          icon_color: teal
+                          layout: horizontal
+                          tap_action:
+                            action: perform-action
+                            perform_action: script.s7_member4_create_and_archive
+                  - type: horizontal-stack
+                    cards:
+                      - type: custom:mushroom-template-card
+                        primary: "{{ states('input_text.s7_member1_name') if states('input_text.s7_member1_name') not in ['', 'unknown', 'unavailable'] else '成员1' }}"
+                        icon: mdi:account-check
+                        icon_color: blue
+                        layout: vertical
+                        fill_container: true
+                        tap_action:
+                          action: perform-action
+                          perform_action: script.s7_confirm_selected_pending
+                          data:
+                            member_id: 1
+                      - type: custom:mushroom-template-card
+                        primary: "{{ states('input_text.s7_member2_name') if states('input_text.s7_member2_name') not in ['', 'unknown', 'unavailable'] else '成员2' }}"
+                        icon: mdi:account-check
+                        icon_color: green
+                        layout: vertical
+                        fill_container: true
+                        tap_action:
+                          action: perform-action
+                          perform_action: script.s7_confirm_selected_pending
+                          data:
+                            member_id: 2
+                      - type: custom:mushroom-template-card
+                        primary: "{{ states('input_text.s7_member3_name') if states('input_text.s7_member3_name') not in ['', 'unknown', 'unavailable'] else '成员3' }}"
+                        icon: mdi:account-check
+                        icon_color: purple
+                        layout: vertical
+                        fill_container: true
+                        tap_action:
+                          action: perform-action
+                          perform_action: script.s7_confirm_selected_pending
+                          data:
+                            member_id: 3
+                      - type: custom:mushroom-template-card
+                        primary: "{{ states('input_text.s7_member4_name') if is_state('input_boolean.s7_member4_created', 'on') and states('input_text.s7_member4_name') not in ['', 'unknown', 'unavailable'] else '创建成员' }}"
+                        icon: mdi:account-plus
+                        icon_color: teal
+                        layout: vertical
+                        fill_container: true
+                        tap_action:
+                          action: perform-action
+                          perform_action: script.s7_member4_pending_action
+                      - type: custom:mushroom-template-card
+                        primary: 舍弃
+                        icon: mdi:delete
+                        icon_color: red
+                        layout: vertical
+                        fill_container: true
+                        tap_action:
+                          action: perform-action
+                          perform_action: script.s7_discard_selected_pending
+                          confirmation:
+                            text: 确定舍弃这条测量记录吗？
+            - type: conditional
+              conditions:
+                - entity: input_select.s7_pending_selected
+                  state: "Closed"
+              card:
+                type: markdown
+                content: |
+                  **暂无待确认测量**
+
+                  新测量完成后，数据会自动出现在这里。当前面板可以点击顶部状态卡收起。
+  # Member cards are compact; tap a member header to edit the profile.
+  - type: custom:stack-in-card
+    mode: vertical
+    cards:
+      - type: custom:mushroom-template-card
+        primary: "{{ states('input_text.s7_member1_name') if states('input_text.s7_member1_name') not in ['', 'unknown', 'unavailable'] else '家庭成员 1' }}"
+        secondary: "年龄 {{ states('input_number.s7_member1_age') }} 岁 · 身高 {{ states('input_number.s7_member1_height') }} cm"
+        icon: mdi:account
+        icon_color: blue
+        tap_action:
+          action: perform-action
+          perform_action: script.s7_toggle_member_profile
+          data:
+            member_id: 1
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_profile_editing
+            state: "1"
+        card:
+          type: entities
+          title: 编辑成员资料
+          show_header_toggle: false
+          entities:
+            - entity: input_text.s7_member1_name
+              name: 姓名
+            - entity: input_text.s7_member1_birthdate
+              name: 出生日期（YYYY-MM-DD）
+            - entity: input_number.s7_member1_height
+              name: 身高（cm）
+            - entity: input_select.s7_member1_sex
+              name: 性别
+      - type: entities
+        show_header_toggle: false
+        entities:
+          - entity: sensor.s7_member_1_weight
+            name: 体重
+          - entity: sensor.s7_member_1_bmi
+            name: BMI
+          - entity: sensor.s7_member_1_body_fat
+            name: 体脂率
+          - entity: sensor.s7_member_1_water
+            name: 水分率
+          - entity: sensor.s7_member_1_muscle
+            name: 肌肉率
+          - entity: sensor.s7_member_1_bmr
+            name: 基础代谢
+          - entity: sensor.s7_member_1_bone_mass
+            name: 骨量
+
+  - type: custom:stack-in-card
+    mode: vertical
+    cards:
+      - type: custom:mushroom-template-card
+        primary: "{{ states('input_text.s7_member2_name') if states('input_text.s7_member2_name') not in ['', 'unknown', 'unavailable'] else '家庭成员 2' }}"
+        secondary: "年龄 {{ states('input_number.s7_member2_age') }} 岁 · 身高 {{ states('input_number.s7_member2_height') }} cm"
+        icon: mdi:account
+        icon_color: green
+        tap_action:
+          action: perform-action
+          perform_action: script.s7_toggle_member_profile
+          data:
+            member_id: 2
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_profile_editing
+            state: "2"
+        card:
+          type: entities
+          title: 编辑成员资料
+          show_header_toggle: false
+          entities:
+            - entity: input_text.s7_member2_name
+              name: 姓名
+            - entity: input_text.s7_member2_birthdate
+              name: 出生日期（YYYY-MM-DD）
+            - entity: input_number.s7_member2_height
+              name: 身高（cm）
+            - entity: input_select.s7_member2_sex
+              name: 性别
+      - type: entities
+        show_header_toggle: false
+        entities:
+          - entity: sensor.s7_member_2_weight
+            name: 体重
+          - entity: sensor.s7_member_2_bmi
+            name: BMI
+          - entity: sensor.s7_member_2_body_fat
+            name: 体脂率
+          - entity: sensor.s7_member_2_water
+            name: 水分率
+          - entity: sensor.s7_member_2_muscle
+            name: 肌肉率
+          - entity: sensor.s7_member_2_bmr
+            name: 基础代谢
+          - entity: sensor.s7_member_2_bone_mass
+            name: 骨量
+
+  - type: custom:stack-in-card
+    mode: vertical
+    cards:
+      - type: custom:mushroom-template-card
+        primary: "{{ states('input_text.s7_member3_name') if states('input_text.s7_member3_name') not in ['', 'unknown', 'unavailable'] else '家庭成员 3' }}"
+        secondary: "年龄 {{ states('input_number.s7_member3_age') }} 岁 · 身高 {{ states('input_number.s7_member3_height') }} cm"
+        icon: mdi:account
+        icon_color: purple
+        tap_action:
+          action: perform-action
+          perform_action: script.s7_toggle_member_profile
+          data:
+            member_id: 3
+      - type: conditional
+        conditions:
+          - entity: input_select.s7_profile_editing
+            state: "3"
+        card:
+          type: entities
+          title: 编辑成员资料
+          show_header_toggle: false
+          entities:
+            - entity: input_text.s7_member3_name
+              name: 姓名
+            - entity: input_text.s7_member3_birthdate
+              name: 出生日期（YYYY-MM-DD）
+            - entity: input_number.s7_member3_height
+              name: 身高（cm）
+            - entity: input_select.s7_member3_sex
+              name: 性别
+      - type: entities
+        show_header_toggle: false
+        entities:
+          - entity: sensor.s7_member_3_weight
+            name: 体重
+          - entity: sensor.s7_member_3_bmi
+            name: BMI
+          - entity: sensor.s7_member_3_body_fat
+            name: 体脂率
+          - entity: sensor.s7_member_3_water
+            name: 水分率
+          - entity: sensor.s7_member_3_muscle
+            name: 肌肉率
+          - entity: sensor.s7_member_3_bmr
+            name: 基础代谢
+          - entity: sensor.s7_member_3_bone_mass
+            name: 骨量
+
+  - type: conditional
+    conditions:
+      - entity: input_boolean.s7_member4_created
+        state: "on"
+    card:
+      type: custom:stack-in-card
+      mode: vertical
+      cards:
+        - type: custom:mushroom-template-card
+          primary: "{{ states('input_text.s7_member4_name') }}"
+          secondary: "年龄 {{ states('input_number.s7_member4_age') }} 岁 · 身高 {{ states('input_number.s7_member4_height') }} cm"
+          icon: mdi:account
+          icon_color: teal
+          tap_action:
+            action: perform-action
+            perform_action: script.s7_toggle_member_profile
+            data:
+              member_id: 4
+        - type: conditional
+          conditions:
+            - entity: input_select.s7_profile_editing
+              state: "4"
+          card:
+            type: entities
+            title: 编辑成员资料
+            show_header_toggle: false
+            entities:
+              - entity: input_text.s7_member4_name
+                name: 姓名
+              - entity: input_text.s7_member4_birthdate
+                name: 出生日期（YYYY-MM-DD）
+              - entity: input_number.s7_member4_height
+                name: 身高（cm）
+              - entity: input_select.s7_member4_sex
+                name: 性别
+        - type: entities
+          show_header_toggle: false
+          entities:
+            - entity: sensor.s7_member_4_weight
+              name: 体重
+            - entity: sensor.s7_member_4_bmi
+              name: BMI
+            - entity: sensor.s7_member_4_body_fat
+              name: 体脂率
+            - entity: sensor.s7_member_4_water
+              name: 水分率
+            - entity: sensor.s7_member_4_muscle
+              name: 肌肉率
+            - entity: sensor.s7_member_4_bmr
+              name: 基础代谢
+            - entity: sensor.s7_member_4_bone_mass
+              name: 骨量
+
